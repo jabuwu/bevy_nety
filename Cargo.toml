@@ -1,0 +1,17 @@
+[package]
+name = "bevy_nety"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+resolver = "2"
+
+[dependencies]
+bevy = { version = "0.6.1", default-features = false }
+bevy_nety_protocol = { path = "crates/bevy_nety_protocol" }
+serde = { version = "1", features = ["derive"] }
+ron = "0.7.0"
+uuid = { version = "0.8", features = ["serde", "v4"] }
+
+[dev-dependencies]
+bevy = { version = "0.6.1", default-features = true }
