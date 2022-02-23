@@ -1,31 +1,37 @@
 use super::messages::NetworkMessage;
+use super::player::NetworkPlayer;
 use bevy_nety_protocol::{NetworkHost, NetworkSocket};
 
+pub(crate) struct NetworkServerJoiner {
+    pub(crate) socket: Option<NetworkSocket>,
+}
+
+pub(crate) struct NetworkServerPlayer {
+    pub(crate) initialized: bool,
+    pub(crate) handle: NetworkPlayer,
+    pub(crate) socket: NetworkSocket,
+}
+
 pub struct NetworkServer {
-    hosts: Vec<NetworkHost>,
-    sockets: Vec<NetworkSocket>,
+    pub(crate) hosts: Vec<NetworkHost>,
+    pub(crate) local_player: Option<NetworkPlayer>,
+    pub(crate) joiners: Vec<NetworkServerJoiner>,
+    pub(crate) players: Vec<NetworkServerPlayer>,
 }
 
 impl NetworkServer {
-    pub(crate) fn new(hosts: Vec<NetworkHost>) -> Self {
+    pub(crate) fn new(hosts: Vec<NetworkHost>, local_player: Option<NetworkPlayer>) -> Self {
         Self {
             hosts,
-            sockets: vec![],
-        }
-    }
-
-    pub(crate) fn update(&mut self) {
-        for host in self.hosts.iter_mut() {
-            host.update();
-            while let Some(socket) = host.accept() {
-                self.sockets.push(socket);
-            }
+            local_player,
+            joiners: vec![],
+            players: vec![],
         }
     }
 
     pub fn send_event(&mut self) {
-        for socket in self.sockets.iter_mut() {
-            socket.send(NetworkMessage::Event.serialize());
+        for player in self.players.iter_mut() {
+            player.socket.send(NetworkMessage::Event.serialize());
         }
     }
 }

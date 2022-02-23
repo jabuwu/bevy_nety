@@ -1,41 +1,22 @@
-use super::events::NetworkEvent;
-use super::messages::NetworkMessage;
-use bevy::app::Events;
-use bevy::prelude::*;
+use super::player::NetworkPlayer;
 use bevy_nety_protocol::NetworkSocket;
-use std::collections::VecDeque;
 
 pub struct NetworkClient {
-    socket: NetworkSocket,
-    events: VecDeque<NetworkEvent>,
+    pub(crate) initialized: bool,
+    pub(crate) socket: NetworkSocket,
+    pub(crate) me: NetworkPlayer,
+    pub(crate) players: Vec<NetworkPlayer>,
+    pub(crate) existing_player_flag: bool,
 }
 
 impl NetworkClient {
-    pub(crate) fn new(socket: NetworkSocket) -> Self {
+    pub(crate) fn new(socket: NetworkSocket, me: NetworkPlayer) -> Self {
         Self {
+            initialized: false,
             socket,
-            events: VecDeque::new(),
-        }
-    }
-
-    pub(crate) fn update(&mut self) {
-        self.socket.update();
-        while let Some(message) = self.socket.receive() {
-            let message = NetworkMessage::deserialize(&message);
-            match message {
-                NetworkMessage::Event => {
-                    self.events.push_back(NetworkEvent);
-                }
-            }
-        }
-    }
-
-    pub(crate) fn update_world(&mut self, world: &mut World) {
-        if !self.events.is_empty() {
-            while let Some(event) = self.events.pop_front() {
-                let mut world_events = world.get_resource_mut::<Events<NetworkEvent>>().unwrap();
-                world_events.send(event);
-            }
+            me,
+            players: vec![],
+            existing_player_flag: true,
         }
     }
 }

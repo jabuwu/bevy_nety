@@ -1,8 +1,12 @@
+use super::player::NetworkPlayer;
 use super::serializer::{deserialize, serialize};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum NetworkMessage {
+    PlayerInit { player: NetworkPlayer },
+    PlayerJoin { player: NetworkPlayer, me: bool },
+    PlayerLeave { player: NetworkPlayer },
     Event,
 }
 

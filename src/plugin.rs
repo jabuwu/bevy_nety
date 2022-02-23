@@ -9,7 +9,10 @@ impl Plugin for NetworkPlugin {
         // TODO: what stage should network run? first? last?
         app.init_resource::<Network>()
             .add_event::<NetworkConnectEvent>()
+            .add_event::<NetworkConnectingEvent>()
             .add_event::<NetworkDisconnectEvent>()
+            .add_event::<NetworkPlayerJoinEvent>()
+            .add_event::<NetworkPlayerLeaveEvent>()
             .add_event::<NetworkEvent>()
             .add_system(update_network.exclusive_system());
     }
