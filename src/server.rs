@@ -44,4 +44,25 @@ impl NetworkServer {
             );
         }
     }
+
+    pub fn send_to_all_except_local<T>(&mut self, event: T)
+    where
+        T: NetworkEventTraits,
+    {
+        for player in self.players.iter_mut() {
+            let is_local_player = if let Some(local_player) = self.local_player {
+                player.handle == local_player
+            } else {
+                false
+            };
+            if !is_local_player {
+                player.socket.send(
+                    NetworkMessage::Event {
+                        data: NetworkSerializedStruct::from_struct(&event),
+                    }
+                    .serialize(),
+                );
+            }
+        }
+    }
 }
