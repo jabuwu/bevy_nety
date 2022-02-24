@@ -39,10 +39,6 @@ pub struct NetworkSerializedStructMap {
 }
 
 impl NetworkSerializedStructMap {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn set<T>(&mut self, data: T)
     where
         T: Serialize,
