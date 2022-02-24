@@ -1,4 +1,5 @@
 use crate::{
+    entity::NetworkEntity,
     player::NetworkPlayer,
     serialized_struct::{NetworkSerializedStruct, NetworkSerializedStructMap},
     serializer::{deserialize, serialize},
@@ -21,6 +22,12 @@ pub enum NetworkMessage {
     },
     Event {
         data: NetworkSerializedStruct,
+    },
+    EntitySpawn {
+        entity: NetworkEntity,
+    },
+    EntityDespawn {
+        entity: NetworkEntity,
     },
 }
 

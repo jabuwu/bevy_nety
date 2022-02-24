@@ -1,5 +1,6 @@
 use crate::{
-    client::{NetworkClient, NetworkClientPlayer},
+    client::{NetworkClient, NetworkClientEntity, NetworkClientPlayer},
+    entity::NetworkEntity,
     event_queue::EventQueue,
     events::{
         NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent,
@@ -10,6 +11,7 @@ use crate::{
     player::NetworkPlayer,
     player_data::NetworkPlayerDataTraits,
     registry::NetworkRegistry,
+    relevancy::NetworkRelevancyState,
     serialized_struct::NetworkSerializedStructMap,
     server::{NetworkServer, NetworkServerJoiner, NetworkServerPlayer},
 };
@@ -285,6 +287,7 @@ pub fn update_network(world: &mut World) {
     let mut network = unsafe_world.get_resource_mut::<Network>().unwrap();
     update_connector(&mut network);
     client_initialize(&mut network);
+    server_entities_diff(&mut network, world);
     server_accept_sockets(&mut network);
     client_receive_messages(&mut network);
     server_receive_messages_from_joiners(&mut network);
@@ -293,6 +296,8 @@ pub fn update_network(world: &mut World) {
     client_check_disconnect(&mut network);
     server_check_disconnects(&mut network);
     send_events(&mut network, world);
+    client_spawn_despawn_entities(&mut network, world);
+    update_entities(&mut network, world);
 }
 
 fn update_connector(mut network: &mut Network) {
@@ -342,6 +347,69 @@ fn client_initialize(network: &mut Network) {
     }
 }
 
+pub fn server_entities_diff(network: &mut Network, world: &mut World) {
+    let Network { state, .. } = network;
+    let server = get_server_from_state!(state);
+    for (_, entity) in server.entities.iter_mut() {
+        entity.exists = false;
+    }
+    let mut network_entity_query = world.query::<&NetworkEntity>();
+    for network_entity in network_entity_query.iter(world) {
+        server.get_or_insert_entity(*network_entity).exists = true;
+    }
+    let NetworkServer {
+        players,
+        entities,
+        local_player,
+        relevancy,
+        ..
+    } = server;
+    for (handle, entity) in entities.iter_mut() {
+        if !entity.exists {
+            for player in players.iter_mut() {
+                let is_local_player = if let Some(local_player) = local_player {
+                    player.handle == *local_player
+                } else {
+                    false
+                };
+                if !is_local_player && relevancy.relevant(player.handle, *handle) {
+                    player
+                        .socket
+                        .send(NetworkMessage::EntityDespawn { entity: *handle }.serialize());
+                }
+            }
+        }
+    }
+    entities.retain(|_, entity| entity.exists);
+    for player in players.iter_mut() {
+        for (handle, network_entity) in entities.iter() {
+            let is_local_player = if let Some(local_player) = local_player {
+                player.handle == *local_player
+            } else {
+                false
+            };
+            match relevancy.update(player.handle, network_entity) {
+                NetworkRelevancyState::Spawn => {
+                    if !is_local_player {
+                        player
+                            .socket
+                            .send(NetworkMessage::EntitySpawn { entity: *handle }.serialize());
+                    }
+                }
+                NetworkRelevancyState::Despawn => {
+                    if !is_local_player {
+                        player
+                            .socket
+                            .send(NetworkMessage::EntityDespawn { entity: *handle }.serialize());
+                    }
+                }
+                NetworkRelevancyState::Relevant => {}
+                NetworkRelevancyState::Irrelevant => {}
+            }
+        }
+    }
+}
+
 pub fn server_accept_sockets(network: &mut Network) {
     let Network { state, .. } = network;
     let server = get_server_from_state!(state);
@@ -384,6 +452,22 @@ pub fn client_receive_messages(network: &mut Network) {
             }
             NetworkMessage::Event { data } => {
                 event_queue.network(data);
+            }
+            NetworkMessage::EntitySpawn { entity } => {
+                // TODO: ensure that NetworkEntity doesn't already exist in hash map?
+                client.entities.insert(
+                    entity,
+                    NetworkClientEntity {
+                        initialized: false,
+                        exists: true,
+                        local_entity: None,
+                    },
+                );
+            }
+            NetworkMessage::EntityDespawn { entity } => {
+                if let Some(entity) = client.entities.get_mut(&entity) {
+                    entity.exists = false;
+                }
             }
             _ => {
                 // TODO: disconnect for bad data?
@@ -536,4 +620,31 @@ fn send_events(network: &mut Network, world: &mut World) {
         ..
     } = network;
     event_queue.send_to_world(world, registry);
+}
+
+fn client_spawn_despawn_entities(network: &mut Network, world: &mut World) {
+    let Network { state, .. } = network;
+    let client = get_client_from_state!(state);
+    for (handle, entity) in client.entities.iter_mut() {
+        if !entity.initialized {
+            entity.local_entity = Some(world.spawn().insert(*handle).id());
+            entity.initialized = true;
+        }
+        if !entity.exists {
+            if let Some(local_entity) = entity.local_entity {
+                world.entity_mut(local_entity).despawn();
+            }
+        }
+    }
+    client.entities.retain(|_, entity| entity.exists);
+}
+
+fn update_entities(network: &mut Network, world: &mut World) {
+    if network.is_disconnected() {
+        let mut query = world.query_filtered::<Entity, With<NetworkEntity>>();
+        let entities: Vec<Entity> = query.iter(world).map(|e| e).collect();
+        for entity in entities {
+            world.entity_mut(entity).despawn();
+        }
+    }
 }

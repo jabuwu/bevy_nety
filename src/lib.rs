@@ -1,5 +1,6 @@
 mod add_network_data;
 mod client;
+mod entity;
 mod event_queue;
 mod events;
 mod internal_protocol;
@@ -10,6 +11,7 @@ mod player;
 mod player_data;
 mod plugin;
 mod registry;
+mod relevancy;
 mod serialized_struct;
 mod serializer;
 mod server;
@@ -21,6 +23,7 @@ pub mod prelude {
     pub use super::{
         add_network_data::AddNetworkData,
         client::NetworkClient,
+        entity::NetworkEntity,
         events::{
             NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent, NetworkEvent,
             NetworkPlayerJoinEvent, NetworkPlayerLeaveEvent, NetworkServerEvent,

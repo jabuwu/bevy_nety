@@ -1,10 +1,13 @@
 use crate::{
+    entity::NetworkEntity,
     events::NetworkEventTraits,
     messages::NetworkMessage,
     player::NetworkPlayer,
+    relevancy::NetworkRelevancy,
     serialized_struct::{NetworkSerializedStruct, NetworkSerializedStructMap},
 };
 use bevy_nety_protocol::{NetworkHost, NetworkSocket};
+use std::collections::HashMap;
 
 pub(crate) struct NetworkServerJoiner {
     pub(crate) socket: Option<NetworkSocket>,
@@ -17,11 +20,18 @@ pub(crate) struct NetworkServerPlayer {
     pub(crate) data: NetworkSerializedStructMap,
 }
 
+pub(crate) struct NetworkServerEntity {
+    pub(crate) handle: NetworkEntity,
+    pub(crate) exists: bool,
+}
+
 pub struct NetworkServer {
     pub(crate) hosts: Vec<NetworkHost>,
     pub(crate) local_player: Option<NetworkPlayer>,
     pub(crate) joiners: Vec<NetworkServerJoiner>,
     pub(crate) players: Vec<NetworkServerPlayer>,
+    pub(crate) entities: HashMap<NetworkEntity, NetworkServerEntity>,
+    pub(crate) relevancy: NetworkRelevancy,
 }
 
 impl NetworkServer {
@@ -31,6 +41,8 @@ impl NetworkServer {
             local_player,
             joiners: vec![],
             players: vec![],
+            entities: HashMap::new(),
+            relevancy: NetworkRelevancy::default(),
         }
     }
 
@@ -87,5 +99,17 @@ impl NetworkServer {
 
     pub(crate) fn players(&self) -> Vec<NetworkPlayer> {
         self.players.iter().map(|p| p.handle).collect()
+    }
+
+    pub(crate) fn get_or_insert_entity(
+        &mut self,
+        entity: NetworkEntity,
+    ) -> &mut NetworkServerEntity {
+        self.entities
+            .entry(entity)
+            .or_insert_with(|| NetworkServerEntity {
+                handle: entity,
+                exists: true,
+            })
     }
 }

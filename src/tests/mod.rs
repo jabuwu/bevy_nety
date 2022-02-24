@@ -1,5 +1,6 @@
 mod common;
 mod connection_events;
+mod entities_spawn_despawn;
 mod game_events_from_client;
 mod game_events_from_server;
 mod is;
