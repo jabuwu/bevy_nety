@@ -1,14 +1,16 @@
-use super::client::NetworkClient;
-use super::event_queue::EventQueue;
-use super::events::{
-    NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent, NetworkPlayerJoinEvent,
-    NetworkPlayerLeaveEvent,
+use crate::{
+    client::NetworkClient,
+    event_queue::EventQueue,
+    events::{
+        NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent,
+        NetworkPlayerJoinEvent, NetworkPlayerLeaveEvent,
+    },
+    internal_protocol::InternalHost,
+    messages::NetworkMessage,
+    player::NetworkPlayer,
+    registry::NetworkRegistry,
+    server::{NetworkServer, NetworkServerJoiner, NetworkServerPlayer},
 };
-use super::internal_protocol::InternalHost;
-use super::messages::NetworkMessage;
-use super::player::NetworkPlayer;
-use super::registry::NetworkRegistry;
-use super::server::{NetworkServer, NetworkServerJoiner, NetworkServerPlayer};
 use bevy::prelude::*;
 use bevy_nety_protocol::{NetworkConnectStatus, NetworkConnector, NetworkHost};
 

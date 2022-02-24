@@ -1,5 +1,10 @@
-use crate::network::update_network;
-use crate::prelude::*;
+use crate::{
+    events::{
+        NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent,
+        NetworkPlayerJoinEvent, NetworkPlayerLeaveEvent,
+    },
+    network::{update_network, Network},
+};
 use bevy::prelude::*;
 
 pub struct NetworkPlugin;

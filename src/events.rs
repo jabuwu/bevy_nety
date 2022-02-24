@@ -1,4 +1,4 @@
-use super::player::NetworkPlayer;
+use crate::player::NetworkPlayer;
 use bevy::ecs::system::Resource;
 use serde::de::DeserializeOwned;
 use serde::Serialize;

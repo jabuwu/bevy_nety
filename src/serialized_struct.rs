@@ -1,4 +1,4 @@
-use super::serializer::{deserialize, serialize};
+use crate::serializer::{deserialize, serialize};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::any::type_name;

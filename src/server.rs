@@ -1,7 +1,7 @@
-use super::events::NetworkEventTraits;
-use super::messages::NetworkMessage;
-use super::player::NetworkPlayer;
-use super::serialized_struct::NetworkSerializedStruct;
+use crate::{
+    events::NetworkEventTraits, messages::NetworkMessage, player::NetworkPlayer,
+    serialized_struct::NetworkSerializedStruct,
+};
 use bevy_nety_protocol::{NetworkHost, NetworkSocket};
 
 pub(crate) struct NetworkServerJoiner {

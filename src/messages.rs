@@ -1,6 +1,8 @@
-use super::player::NetworkPlayer;
-use super::serialized_struct::NetworkSerializedStruct;
-use super::serializer::{deserialize, serialize};
+use crate::{
+    player::NetworkPlayer,
+    serialized_struct::NetworkSerializedStruct,
+    serializer::{deserialize, serialize},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

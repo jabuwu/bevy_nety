@@ -1,7 +1,6 @@
-use super::events::NetworkEventTraits;
-use super::player::NetworkPlayer;
 use crate::{
-    events::{NetworkEvent, NetworkServerEvent},
+    events::{NetworkEvent, NetworkEventTraits, NetworkServerEvent},
+    player::NetworkPlayer,
     serialized_struct::NetworkSerializedStruct,
 };
 use bevy::{app::Events, prelude::*};

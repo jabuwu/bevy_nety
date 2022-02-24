@@ -1,5 +1,7 @@
-use super::events::{NetworkEvent, NetworkEventTraits, NetworkServerEvent};
-use super::network::Network;
+use crate::{
+    events::{NetworkEvent, NetworkEventTraits, NetworkServerEvent},
+    network::Network,
+};
 use bevy::prelude::*;
 
 pub trait AddNetworkData {
