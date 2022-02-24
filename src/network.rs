@@ -118,6 +118,7 @@ impl Network {
     pub fn is_disconnected(&mut self) -> bool {
         match &self.state {
             NetworkState::Connected { .. } => false,
+            NetworkState::Connecting { .. } => false,
             _ => true,
         }
     }
