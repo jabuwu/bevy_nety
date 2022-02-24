@@ -1,6 +1,6 @@
 use crate::{
     events::{
-        NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent, NetworkEvent,
+        NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent,
         NetworkPlayerJoinEvent, NetworkPlayerLeaveEvent,
     },
     registry::NetworkRegistry,

@@ -1,8 +1,8 @@
 use super::client::NetworkClient;
 use super::event_queue::EventQueue;
 use super::events::{
-    NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent, NetworkEvent,
-    NetworkPlayerJoinEvent, NetworkPlayerLeaveEvent,
+    NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent, NetworkPlayerJoinEvent,
+    NetworkPlayerLeaveEvent,
 };
 use super::internal_protocol::InternalHost;
 use super::messages::NetworkMessage;
