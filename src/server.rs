@@ -1,6 +1,8 @@
 use crate::{
-    events::NetworkEventTraits, messages::NetworkMessage, player::NetworkPlayer,
-    serialized_struct::NetworkSerializedStruct,
+    events::NetworkEventTraits,
+    messages::NetworkMessage,
+    player::NetworkPlayer,
+    serialized_struct::{NetworkSerializedStruct, NetworkSerializedStructMap},
 };
 use bevy_nety_protocol::{NetworkHost, NetworkSocket};
 
@@ -12,6 +14,7 @@ pub(crate) struct NetworkServerPlayer {
     pub(crate) initialized: bool,
     pub(crate) handle: NetworkPlayer,
     pub(crate) socket: NetworkSocket,
+    pub(crate) data: NetworkSerializedStructMap,
 }
 
 pub struct NetworkServer {

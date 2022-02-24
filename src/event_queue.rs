@@ -82,14 +82,14 @@ impl EventQueue {
             events.send(player_leave_event);
         }
         if let Some(network_event) = self.network_events.pop_front() {
-            if let Some(entry) = registry.get_entry(&network_event) {
+            if let Some(entry) = registry.get_entry_from_serialized(&network_event) {
                 if let Some(event) = &mut entry.event {
                     (event.send_to_world)(world, network_event);
                 }
             }
         }
         if let Some((from, network_server_event)) = self.network_server_events.pop_front() {
-            if let Some(entry) = registry.get_entry(&network_server_event) {
+            if let Some(entry) = registry.get_entry_from_serialized(&network_server_event) {
                 if let Some(event) = &mut entry.event {
                     (event.send_to_server_world)(world, from, network_server_event);
                 }

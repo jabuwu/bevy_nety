@@ -4,6 +4,7 @@ mod game_events_from_client;
 mod game_events_from_server;
 mod is;
 mod multiple_joins_leaves;
+mod player_data;
 mod player_join_events;
 mod player_leave_events;
 mod players;

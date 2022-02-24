@@ -1,4 +1,4 @@
-use super::test_events::TestGameEvent;
+use super::test_structs::TestGameEvent;
 use crate::prelude::*;
 use bevy::prelude::*;
 

@@ -1,5 +1,5 @@
 use super::introspection::{Introspection, IntrospectionPlugin};
-use super::test_events::TestGameEvent;
+use super::test_structs::{TestGameEvent, TestPlayerData};
 use crate::prelude::*;
 use bevy::prelude::*;
 
@@ -16,6 +16,7 @@ impl AppSetupForTests for App {
             .add_plugin(NetworkPlugin)
             .add_plugin(IntrospectionPlugin)
             .add_network_event::<TestGameEvent>()
+            .add_network_player_data::<TestPlayerData>()
     }
 
     fn network(&self) -> &Network {

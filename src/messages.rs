@@ -1,16 +1,27 @@
 use crate::{
     player::NetworkPlayer,
-    serialized_struct::NetworkSerializedStruct,
+    serialized_struct::{NetworkSerializedStruct, NetworkSerializedStructMap},
     serializer::{deserialize, serialize},
 };
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum NetworkMessage {
-    PlayerInit { player: NetworkPlayer },
-    PlayerJoin { player: NetworkPlayer, me: bool },
-    PlayerLeave { player: NetworkPlayer },
-    Event { data: NetworkSerializedStruct },
+    PlayerInit {
+        player: NetworkPlayer,
+        data: NetworkSerializedStructMap,
+    },
+    PlayerJoin {
+        player: NetworkPlayer,
+        me: bool,
+        data: NetworkSerializedStructMap,
+    },
+    PlayerLeave {
+        player: NetworkPlayer,
+    },
+    Event {
+        data: NetworkSerializedStruct,
+    },
 }
 
 impl NetworkMessage {

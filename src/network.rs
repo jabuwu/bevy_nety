@@ -1,5 +1,5 @@
 use crate::{
-    client::NetworkClient,
+    client::{NetworkClient, NetworkClientPlayer},
     event_queue::EventQueue,
     events::{
         NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent,
@@ -8,11 +8,14 @@ use crate::{
     internal_protocol::InternalHost,
     messages::NetworkMessage,
     player::NetworkPlayer,
+    player_data::NetworkPlayerDataTraits,
     registry::NetworkRegistry,
+    serialized_struct::NetworkSerializedStructMap,
     server::{NetworkServer, NetworkServerJoiner, NetworkServerPlayer},
 };
 use bevy::prelude::*;
 use bevy_nety_protocol::{NetworkConnectStatus, NetworkConnector, NetworkHost};
+use std::any::type_name;
 
 pub enum NetworkState {
     Connected {
@@ -36,6 +39,7 @@ pub struct Network {
     state: NetworkState,
     event_queue: EventQueue,
     pub(crate) registry: NetworkRegistry,
+    my_player_data: NetworkSerializedStructMap,
 }
 
 impl Network {
@@ -175,6 +179,75 @@ impl Network {
             _ => vec![],
         }
     }
+
+    pub fn set_my_player_data<T>(&mut self, data: T)
+    where
+        T: NetworkPlayerDataTraits,
+    {
+        if let Some(entry) = self.registry.get_entry::<T>() {
+            if let None = &entry.player_data {
+                panic!(
+                    "The struct \"{}\" has not been registered as networked player data.",
+                    type_name::<T>()
+                );
+            }
+        } else {
+            panic!(
+                "The struct \"{}\" has not been registered as networked player data.",
+                type_name::<T>()
+            );
+        }
+        match &self.state {
+            NetworkState::Connected { .. } => {
+                // TODO: probably shouldn't be a panic
+                //       either allow this behavior or switch to error message
+                panic!("Cannot set player data while connected.");
+            }
+            NetworkState::Connecting { .. } => {
+                // TODO: probably shouldn't be a panic
+                //       either allow this behavior or switch to error message
+                panic!("Cannot set player data while connecting.");
+            }
+            _ => {
+                self.my_player_data.set(data);
+            }
+        }
+    }
+
+    pub fn get_player_data<T>(&self, player: NetworkPlayer) -> T
+    where
+        T: NetworkPlayerDataTraits,
+    {
+        match &self.state {
+            NetworkState::Connected { server, client } => {
+                if let Some(server) = server {
+                    if let Some(player) = server.players.iter().find(|p| p.handle == player) {
+                        if let Some(data) = player.data.get::<T>() {
+                            data
+                        } else {
+                            T::default()
+                        }
+                    } else {
+                        T::default()
+                    }
+                } else if let Some(client) = client {
+                    if let Some(player) = client.players.iter().find(|p| p.handle == player) {
+                        if let Some(data) = player.data.get::<T>() {
+                            data
+                        } else {
+                            T::default()
+                        }
+                    } else {
+                        T::default()
+                    }
+                } else {
+                    T::default()
+                }
+            }
+            NetworkState::Connecting { .. } => T::default(),
+            _ => T::default(),
+        }
+    }
 }
 
 macro_rules! get_server_from_state {
@@ -251,12 +324,20 @@ fn update_connector(mut network: &mut Network) {
 }
 
 fn client_initialize(network: &mut Network) {
-    let Network { state, .. } = network;
+    let Network {
+        state,
+        my_player_data,
+        ..
+    } = network;
     let client = get_client_from_state!(state);
     if !client.initialized {
-        client
-            .socket
-            .send(NetworkMessage::PlayerInit { player: client.me }.serialize());
+        client.socket.send(
+            NetworkMessage::PlayerInit {
+                player: client.me,
+                data: my_player_data.clone(),
+            }
+            .serialize(),
+        );
         client.initialized = true;
     }
 }
@@ -283,11 +364,14 @@ pub fn client_receive_messages(network: &mut Network) {
     while let Some(message) = client.socket.receive() {
         let message = NetworkMessage::deserialize(&message);
         match message {
-            NetworkMessage::PlayerJoin { player, me } => {
+            NetworkMessage::PlayerJoin { player, me, data } => {
                 if me {
                     client.existing_player_flag = false;
                 }
-                client.players.push(player);
+                client.players.push(NetworkClientPlayer {
+                    handle: player,
+                    data,
+                });
                 event_queue.player_join(NetworkPlayerJoinEvent {
                     player,
                     me,
@@ -295,7 +379,7 @@ pub fn client_receive_messages(network: &mut Network) {
                 });
             }
             NetworkMessage::PlayerLeave { player } => {
-                client.players.retain(|p| *p != player);
+                client.players.retain(|p| p.handle != player);
                 event_queue.player_leave(NetworkPlayerLeaveEvent { player });
             }
             NetworkMessage::Event { data } => {
@@ -318,11 +402,12 @@ pub fn server_receive_messages_from_joiners(network: &mut Network) {
             while let Some(message) = socket.receive() {
                 let message = NetworkMessage::deserialize(&message);
                 match message {
-                    NetworkMessage::PlayerInit { player } => {
+                    NetworkMessage::PlayerInit { player, data } => {
                         server.players.push(NetworkServerPlayer {
                             initialized: false,
                             handle: player,
                             socket: joiner.socket.take().unwrap(),
+                            data,
                         });
                         break;
                     }
@@ -358,6 +443,7 @@ pub fn server_initialize_players(network: &mut Network) {
                         NetworkMessage::PlayerJoin {
                             player: other_player.handle,
                             me,
+                            data: other_player.data.clone(),
                         }
                         .serialize(),
                     );
@@ -366,6 +452,7 @@ pub fn server_initialize_players(network: &mut Network) {
                             NetworkMessage::PlayerJoin {
                                 player: player.handle,
                                 me: false,
+                                data: player.data.clone(),
                             }
                             .serialize(),
                         );
