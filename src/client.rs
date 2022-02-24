@@ -19,4 +19,8 @@ impl NetworkClient {
             existing_player_flag: true,
         }
     }
+
+    pub(crate) fn players(&self) -> Vec<NetworkPlayer> {
+        self.players.clone()
+    }
 }

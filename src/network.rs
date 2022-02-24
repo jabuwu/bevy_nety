@@ -157,6 +157,21 @@ impl Network {
             None
         }
     }
+
+    pub fn players(&self) -> Vec<NetworkPlayer> {
+        match &self.state {
+            NetworkState::Connected { server, client } => {
+                if let Some(server) = server {
+                    server.players()
+                } else if let Some(client) = client {
+                    client.players()
+                } else {
+                    vec![]
+                }
+            }
+            _ => vec![],
+        }
+    }
 }
 
 macro_rules! get_server_from_state {
@@ -335,21 +350,23 @@ pub fn server_initialize_players(network: &mut Network) {
             }
             for other_player in unsafe_players.iter_mut() {
                 let me = player.handle == other_player.handle;
-                player.socket.send(
-                    NetworkMessage::PlayerJoin {
-                        player: other_player.handle,
-                        me,
-                    }
-                    .serialize(),
-                );
-                if !me {
-                    other_player.socket.send(
+                if other_player.initialized || me {
+                    player.socket.send(
                         NetworkMessage::PlayerJoin {
-                            player: player.handle,
-                            me: false,
+                            player: other_player.handle,
+                            me,
                         }
                         .serialize(),
                     );
+                    if !me {
+                        other_player.socket.send(
+                            NetworkMessage::PlayerJoin {
+                                player: player.handle,
+                                me: false,
+                            }
+                            .serialize(),
+                        );
+                    }
                 }
             }
             player.initialized = true;
