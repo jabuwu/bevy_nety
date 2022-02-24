@@ -1,4 +1,4 @@
-use super::events::{NetworkEvent, NetworkEventTraits};
+use super::events::{NetworkEvent, NetworkEventTraits, NetworkServerEvent};
 use super::network::Network;
 use bevy::prelude::*;
 
@@ -14,6 +14,7 @@ impl AddNetworkData for App {
         T: NetworkEventTraits,
     {
         self.add_event::<NetworkEvent<T>>();
+        self.add_event::<NetworkServerEvent<T>>();
         let mut network = self
             .world
             .get_resource_mut::<Network>()

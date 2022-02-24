@@ -1,6 +1,9 @@
-use crate::{events::NetworkEvent, serialized_struct::NetworkSerializedStruct};
-
 use super::events::NetworkEventTraits;
+use super::player::NetworkPlayer;
+use crate::{
+    events::{NetworkEvent, NetworkServerEvent},
+    serialized_struct::NetworkSerializedStruct,
+};
 use bevy::{app::Events, prelude::*};
 use std::{any::type_name, collections::HashMap};
 
@@ -26,6 +29,8 @@ impl NetworkRegistryEntry {
 
 pub struct NetworkRegistryEvent {
     pub(crate) send_to_world: Box<dyn Fn(&mut World, NetworkSerializedStruct) + Send + Sync>,
+    pub(crate) send_to_server_world:
+        Box<dyn Fn(&mut World, NetworkPlayer, NetworkSerializedStruct) + Send + Sync>,
 }
 
 impl NetworkRegistryEvent {
@@ -40,6 +45,17 @@ impl NetworkRegistryEvent {
                     data: s.to_struct::<T>().unwrap(),
                 });
             }),
+            send_to_server_world: Box::new(
+                |world: &mut World, from: NetworkPlayer, s: NetworkSerializedStruct| {
+                    let mut events = world
+                        .get_resource_mut::<Events<NetworkServerEvent<T>>>()
+                        .unwrap();
+                    events.send(NetworkServerEvent {
+                        from,
+                        data: s.to_struct::<T>().unwrap(),
+                    });
+                },
+            ),
         }
     }
 }

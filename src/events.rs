@@ -32,5 +32,10 @@ pub struct NetworkEvent<T: Resource> {
     pub data: T,
 }
 
+pub struct NetworkServerEvent<T: Resource> {
+    pub from: NetworkPlayer,
+    pub data: T,
+}
+
 pub trait NetworkEventTraits: Resource + Serialize + DeserializeOwned {}
 impl<T> NetworkEventTraits for T where T: Resource + Serialize + DeserializeOwned {}

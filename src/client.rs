@@ -1,4 +1,7 @@
+use super::events::NetworkEventTraits;
+use super::messages::NetworkMessage;
 use super::player::NetworkPlayer;
+use super::serialized_struct::NetworkSerializedStruct;
 use bevy_nety_protocol::NetworkSocket;
 
 pub struct NetworkClient {
@@ -18,6 +21,18 @@ impl NetworkClient {
             players: vec![],
             existing_player_flag: true,
         }
+    }
+
+    pub fn send<T>(&mut self, event: T)
+    where
+        T: NetworkEventTraits,
+    {
+        self.socket.send(
+            NetworkMessage::Event {
+                data: NetworkSerializedStruct::from_struct(&event),
+            }
+            .serialize(),
+        );
     }
 
     pub(crate) fn players(&self) -> Vec<NetworkPlayer> {

@@ -19,7 +19,8 @@ pub struct Introspection {
     pub disconnect_events: Vec<NetworkDisconnectEvent>,
     pub player_join_events: Vec<NetworkPlayerJoinEvent>,
     pub player_leave_events: Vec<NetworkPlayerLeaveEvent>,
-    pub test_game_events: Vec<TestGameEvent>,
+    pub test_game_events_on_client: Vec<NetworkEvent<TestGameEvent>>,
+    pub test_game_events_on_server: Vec<NetworkServerEvent<TestGameEvent>>,
 }
 
 pub fn capture_events(
@@ -29,7 +30,8 @@ pub fn capture_events(
     mut disconnect_events: EventReader<NetworkDisconnectEvent>,
     mut player_join_events: EventReader<NetworkPlayerJoinEvent>,
     mut player_leave_events: EventReader<NetworkPlayerLeaveEvent>,
-    mut test_game_events: EventReader<NetworkEvent<TestGameEvent>>,
+    mut test_game_events_on_client: EventReader<NetworkEvent<TestGameEvent>>,
+    mut test_game_events_on_server: EventReader<NetworkServerEvent<TestGameEvent>>,
 ) {
     for event in connect_events.iter() {
         introspection.connect_events.push(event.clone());
@@ -46,7 +48,17 @@ pub fn capture_events(
     for event in player_leave_events.iter() {
         introspection.player_leave_events.push(event.clone());
     }
-    for event in test_game_events.iter() {
-        introspection.test_game_events.push(event.data.clone());
+    for event in test_game_events_on_client.iter() {
+        introspection.test_game_events_on_client.push(NetworkEvent {
+            data: event.data.clone(),
+        });
+    }
+    for event in test_game_events_on_server.iter() {
+        introspection
+            .test_game_events_on_server
+            .push(NetworkServerEvent {
+                from: event.from,
+                data: event.data.clone(),
+            });
     }
 }

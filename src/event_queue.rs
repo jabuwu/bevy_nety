@@ -3,6 +3,7 @@ use crate::{
         NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent,
         NetworkPlayerJoinEvent, NetworkPlayerLeaveEvent,
     },
+    player::NetworkPlayer,
     registry::NetworkRegistry,
     serialized_struct::NetworkSerializedStruct,
 };
@@ -17,6 +18,7 @@ pub struct EventQueue {
     player_join_events: VecDeque<NetworkPlayerJoinEvent>,
     player_leave_events: VecDeque<NetworkPlayerLeaveEvent>,
     network_events: VecDeque<NetworkSerializedStruct>,
+    network_server_events: VecDeque<(NetworkPlayer, NetworkSerializedStruct)>,
 }
 
 impl EventQueue {
@@ -42,6 +44,10 @@ impl EventQueue {
 
     pub fn network(&mut self, event: NetworkSerializedStruct) {
         self.network_events.push_back(event);
+    }
+
+    pub fn network_server(&mut self, from: NetworkPlayer, event: NetworkSerializedStruct) {
+        self.network_server_events.push_back((from, event));
     }
 
     pub fn send_to_world(&mut self, world: &mut World, registry: &mut NetworkRegistry) {
@@ -79,6 +85,13 @@ impl EventQueue {
             if let Some(entry) = registry.get_entry(&network_event) {
                 if let Some(event) = &mut entry.event {
                     (event.send_to_world)(world, network_event);
+                }
+            }
+        }
+        if let Some((from, network_server_event)) = self.network_server_events.pop_front() {
+            if let Some(entry) = registry.get_entry(&network_server_event) {
+                if let Some(event) = &mut entry.event {
+                    (event.send_to_server_world)(world, from, network_server_event);
                 }
             }
         }

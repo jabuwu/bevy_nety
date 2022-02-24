@@ -376,11 +376,23 @@ pub fn server_initialize_players(network: &mut Network) {
 }
 
 pub fn server_receive_messages_from_players(network: &mut Network) {
-    let Network { state, .. } = network;
+    let Network {
+        state, event_queue, ..
+    } = network;
     let server = get_server_from_state!(state);
     for player in server.players.iter_mut() {
         player.socket.update();
-        player.socket.receive();
+        if let Some(message) = player.socket.receive() {
+            let message = NetworkMessage::deserialize(&message);
+            match message {
+                NetworkMessage::Event { data } => {
+                    event_queue.network_server(player.handle, data);
+                }
+                _ => {
+                    // TODO: disconnect for bad data?
+                }
+            }
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 mod common;
 mod connection_events;
+mod game_events_from_client;
 mod game_events_from_server;
 mod is;
 mod multiple_joins_leaves;

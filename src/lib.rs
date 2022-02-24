@@ -21,7 +21,7 @@ pub mod prelude {
         client::NetworkClient,
         events::{
             NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent, NetworkEvent,
-            NetworkPlayerJoinEvent, NetworkPlayerLeaveEvent,
+            NetworkPlayerJoinEvent, NetworkPlayerLeaveEvent, NetworkServerEvent,
         },
         network::Network,
         player::NetworkPlayer,

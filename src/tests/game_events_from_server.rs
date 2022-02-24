@@ -12,8 +12,11 @@ fn local_send_to_all() {
         .unwrap()
         .send_to_all(TestGameEvent { foo: "bar".into() });
     flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_game_events.len(), 1);
-    assert_eq!(app.introspect().test_game_events[0].foo, "bar");
+    assert_eq!(app.introspect().test_game_events_on_client.len(), 1);
+    assert_eq!(
+        app.introspect().test_game_events_on_client[0].data.foo,
+        "bar"
+    );
 }
 
 #[test]
@@ -27,7 +30,7 @@ fn local_send_to_all_except_local() {
         .unwrap()
         .send_to_all_except_local(TestGameEvent { foo: "bar".into() });
     flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_game_events.len(), 0);
+    assert_eq!(app.introspect().test_game_events_on_client.len(), 0);
 }
 
 #[test]
@@ -51,8 +54,11 @@ fn local_send_to_players() {
         },
     );
     flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_game_events.len(), 1);
-    assert_eq!(app.introspect().test_game_events[0].foo, "local");
+    assert_eq!(app.introspect().test_game_events_on_client.len(), 1);
+    assert_eq!(
+        app.introspect().test_game_events_on_client[0].data.foo,
+        "local"
+    );
 }
 
 #[test]
@@ -68,8 +74,11 @@ fn server_client_send_to_all() {
         .unwrap()
         .send_to_all(TestGameEvent { foo: "bar".into() });
     flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_game_events.len(), 1);
-    assert_eq!(app.introspect().test_game_events[0].foo, "bar");
+    assert_eq!(app.introspect().test_game_events_on_client.len(), 1);
+    assert_eq!(
+        app.introspect().test_game_events_on_client[0].data.foo,
+        "bar"
+    );
 }
 
 #[test]
@@ -85,7 +94,7 @@ fn server_client_send_to_all_except_local() {
         .unwrap()
         .send_to_all_except_local(TestGameEvent { foo: "bar".into() });
     flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_game_events.len(), 0);
+    assert_eq!(app.introspect().test_game_events_on_client.len(), 0);
 }
 
 #[test]
@@ -125,8 +134,13 @@ fn server_client_send_to_players() {
             },
         );
     flush_network(vec![&mut server_app, &mut client_app]);
-    assert_eq!(server_app.introspect().test_game_events.len(), 1);
-    assert_eq!(server_app.introspect().test_game_events[0].foo, "server");
+    assert_eq!(server_app.introspect().test_game_events_on_client.len(), 1);
+    assert_eq!(
+        server_app.introspect().test_game_events_on_client[0]
+            .data
+            .foo,
+        "server"
+    );
 }
 
 #[test]
@@ -142,7 +156,7 @@ fn server_send_to_all() {
         .unwrap()
         .send_to_all(TestGameEvent { foo: "bar".into() });
     flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_game_events.len(), 0);
+    assert_eq!(app.introspect().test_game_events_on_client.len(), 0);
 }
 
 #[test]
@@ -158,7 +172,7 @@ fn server_send_to_all_except_local() {
         .unwrap()
         .send_to_all(TestGameEvent { foo: "bar".into() });
     flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_game_events.len(), 0);
+    assert_eq!(app.introspect().test_game_events_on_client.len(), 0);
 }
 
 #[test]
@@ -188,7 +202,7 @@ fn server_send_to_players() {
         .unwrap()
         .send_to_players(&recipients2, TestGameEvent { foo: "bar".into() });
     flush_network(vec![&mut server_app, &mut client_app]);
-    assert_eq!(server_app.introspect().test_game_events.len(), 0);
+    assert_eq!(server_app.introspect().test_game_events_on_client.len(), 0);
 }
 
 #[test]
@@ -216,10 +230,20 @@ fn client_send_to_all() {
         .unwrap()
         .send_to_all(TestGameEvent { foo: "bar".into() });
     flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(client1_app.introspect().test_game_events.len(), 1);
-    assert_eq!(client1_app.introspect().test_game_events[0].foo, "bar");
-    assert_eq!(client2_app.introspect().test_game_events.len(), 1);
-    assert_eq!(client2_app.introspect().test_game_events[0].foo, "bar");
+    assert_eq!(client1_app.introspect().test_game_events_on_client.len(), 1);
+    assert_eq!(
+        client1_app.introspect().test_game_events_on_client[0]
+            .data
+            .foo,
+        "bar"
+    );
+    assert_eq!(client2_app.introspect().test_game_events_on_client.len(), 1);
+    assert_eq!(
+        client2_app.introspect().test_game_events_on_client[0]
+            .data
+            .foo,
+        "bar"
+    );
 }
 
 #[test]
@@ -247,10 +271,20 @@ fn client_send_to_all_except_local() {
         .unwrap()
         .send_to_all_except_local(TestGameEvent { foo: "bar".into() });
     flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(client1_app.introspect().test_game_events.len(), 1);
-    assert_eq!(client1_app.introspect().test_game_events[0].foo, "bar");
-    assert_eq!(client2_app.introspect().test_game_events.len(), 1);
-    assert_eq!(client2_app.introspect().test_game_events[0].foo, "bar");
+    assert_eq!(client1_app.introspect().test_game_events_on_client.len(), 1);
+    assert_eq!(
+        client1_app.introspect().test_game_events_on_client[0]
+            .data
+            .foo,
+        "bar"
+    );
+    assert_eq!(client2_app.introspect().test_game_events_on_client.len(), 1);
+    assert_eq!(
+        client2_app.introspect().test_game_events_on_client[0]
+            .data
+            .foo,
+        "bar"
+    );
 }
 
 #[test]
@@ -306,8 +340,18 @@ fn client_send_to_players() {
             },
         );
     flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(client1_app.introspect().test_game_events.len(), 1);
-    assert_eq!(client1_app.introspect().test_game_events[0].foo, "client1");
-    assert_eq!(client2_app.introspect().test_game_events.len(), 1);
-    assert_eq!(client2_app.introspect().test_game_events[0].foo, "client2");
+    assert_eq!(client1_app.introspect().test_game_events_on_client.len(), 1);
+    assert_eq!(
+        client1_app.introspect().test_game_events_on_client[0]
+            .data
+            .foo,
+        "client1"
+    );
+    assert_eq!(client2_app.introspect().test_game_events_on_client.len(), 1);
+    assert_eq!(
+        client2_app.introspect().test_game_events_on_client[0]
+            .data
+            .foo,
+        "client2"
+    );
 }
