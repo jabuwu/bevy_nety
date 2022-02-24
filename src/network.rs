@@ -7,6 +7,7 @@ use super::events::{
 use super::internal_protocol::InternalHost;
 use super::messages::NetworkMessage;
 use super::player::NetworkPlayer;
+use super::registry::NetworkRegistry;
 use super::server::{NetworkServer, NetworkServerJoiner, NetworkServerPlayer};
 use bevy::prelude::*;
 use bevy_nety_protocol::{NetworkConnectStatus, NetworkConnector, NetworkHost};
@@ -32,6 +33,7 @@ impl Default for NetworkState {
 pub struct Network {
     state: NetworkState,
     event_queue: EventQueue,
+    pub(crate) registry: NetworkRegistry,
 }
 
 impl Network {
@@ -199,7 +201,7 @@ pub fn update_network(world: &mut World) {
     server_receive_messages_from_players(&mut network);
     client_check_disconnect(&mut network);
     server_check_disconnects(&mut network);
-    network.event_queue.send_to_world(world);
+    send_events(&mut network, world);
 }
 
 fn update_connector(mut network: &mut Network) {
@@ -278,8 +280,8 @@ pub fn client_receive_messages(network: &mut Network) {
                 client.players.retain(|p| *p != player);
                 event_queue.player_leave(NetworkPlayerLeaveEvent { player });
             }
-            NetworkMessage::Event => {
-                event_queue.network(NetworkEvent);
+            NetworkMessage::Event { data } => {
+                event_queue.network(data);
             }
             _ => {
                 // TODO: disconnect for bad data?
@@ -406,4 +408,13 @@ pub fn server_check_disconnects(network: &mut Network) {
             );
         }
     }
+}
+
+fn send_events(network: &mut Network, world: &mut World) {
+    let Network {
+        registry,
+        event_queue,
+        ..
+    } = network;
+    event_queue.send_to_world(world, registry);
 }

@@ -3,6 +3,7 @@ use bevy::prelude::*;
 mod app_setup_for_tests;
 mod introspection;
 mod pseudo_network;
+mod test_events;
 
 pub fn flush_network(mut apps: Vec<&mut App>) {
     for _ in 0..10 {
@@ -17,5 +18,6 @@ pub mod prelude {
         app_setup_for_tests::AppSetupForTests,
         flush_network,
         pseudo_network::{PseudoConnector, PseudoHost, PseudoNetwork},
+        test_events::TestGameEvent,
     };
 }

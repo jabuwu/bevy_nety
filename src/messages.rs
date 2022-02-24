@@ -1,4 +1,5 @@
 use super::player::NetworkPlayer;
+use super::serialized_struct::NetworkSerializedStruct;
 use super::serializer::{deserialize, serialize};
 use serde::{Deserialize, Serialize};
 
@@ -7,7 +8,7 @@ pub enum NetworkMessage {
     PlayerInit { player: NetworkPlayer },
     PlayerJoin { player: NetworkPlayer, me: bool },
     PlayerLeave { player: NetworkPlayer },
-    Event,
+    Event { data: NetworkSerializedStruct },
 }
 
 impl NetworkMessage {

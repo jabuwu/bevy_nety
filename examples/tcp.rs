@@ -2,6 +2,12 @@ use bevy::prelude::*;
 use bevy_nety::prelude::*;
 use bevy_nety_tcp::prelude::*;
 use clap::{Parser, Subcommand};
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+pub struct GameEvent {
+    message: String,
+}
 
 /// Tcp bevy_nety example
 #[derive(Parser, Debug)]
@@ -37,6 +43,7 @@ fn main() {
         .insert_resource(args)
         .add_plugins(DefaultPlugins)
         .add_plugin(NetworkPlugin)
+        .add_network_event::<GameEvent>()
         .add_startup_system(init)
         .add_system(network_events)
         .add_system(send_network_events)
@@ -62,7 +69,7 @@ pub fn network_events(
     mut disconnect_events: EventReader<NetworkDisconnectEvent>,
     mut player_join_events: EventReader<NetworkPlayerJoinEvent>,
     mut player_leave_events: EventReader<NetworkPlayerLeaveEvent>,
-    mut network_events: EventReader<NetworkEvent>,
+    mut game_events: EventReader<NetworkEvent<GameEvent>>,
 ) {
     for _ in connecting_events.iter() {
         info!("Connecting...");
@@ -83,15 +90,17 @@ pub fn network_events(
     for _ in player_leave_events.iter() {
         info!("Player left!");
     }
-    for _ in network_events.iter() {
-        info!("Got network event!");
+    for event in game_events.iter() {
+        info!("Game Event: {}", event.data.message);
     }
 }
 
 pub fn send_network_events(input: Res<Input<KeyCode>>, mut network: ResMut<Network>) {
     if input.just_pressed(KeyCode::Space) {
         if let Some(server) = network.server_mut() {
-            server.send_event();
+            server.send_to_all(GameEvent {
+                message: "hello world".into(),
+            });
         }
     }
 }

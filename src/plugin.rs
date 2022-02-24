@@ -13,7 +13,6 @@ impl Plugin for NetworkPlugin {
             .add_event::<NetworkDisconnectEvent>()
             .add_event::<NetworkPlayerJoinEvent>()
             .add_event::<NetworkPlayerLeaveEvent>()
-            .add_event::<NetworkEvent>()
             .add_system(update_network.exclusive_system());
     }
 }

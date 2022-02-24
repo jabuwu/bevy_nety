@@ -1,3 +1,4 @@
+mod add_network_data;
 mod client;
 mod event_queue;
 mod events;
@@ -6,6 +7,8 @@ mod messages;
 mod network;
 mod player;
 mod plugin;
+mod registry;
+mod serialized_struct;
 mod serializer;
 mod server;
 
@@ -14,6 +17,7 @@ mod tests;
 
 pub mod prelude {
     pub use super::{
+        add_network_data::AddNetworkData,
         client::NetworkClient,
         events::{
             NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent, NetworkEvent,

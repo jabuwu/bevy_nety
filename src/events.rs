@@ -1,4 +1,7 @@
 use super::player::NetworkPlayer;
+use bevy::ecs::system::Resource;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 #[derive(Clone, Debug)]
 pub struct NetworkConnectEvent {
@@ -25,6 +28,9 @@ pub struct NetworkPlayerJoinEvent {
 pub struct NetworkPlayerLeaveEvent {
     pub player: NetworkPlayer,
 }
+pub struct NetworkEvent<T: Resource> {
+    pub data: T,
+}
 
-#[derive(Clone, Debug)]
-pub struct NetworkEvent;
+pub trait NetworkEventTraits: Resource + Serialize + DeserializeOwned {}
+impl<T> NetworkEventTraits for T where T: Resource + Serialize + DeserializeOwned {}

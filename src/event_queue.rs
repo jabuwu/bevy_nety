@@ -1,6 +1,10 @@
-use crate::events::{
-    NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent, NetworkEvent,
-    NetworkPlayerJoinEvent, NetworkPlayerLeaveEvent,
+use crate::{
+    events::{
+        NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent, NetworkEvent,
+        NetworkPlayerJoinEvent, NetworkPlayerLeaveEvent,
+    },
+    registry::NetworkRegistry,
+    serialized_struct::NetworkSerializedStruct,
 };
 use bevy::{app::Events, prelude::*};
 use std::collections::VecDeque;
@@ -12,7 +16,7 @@ pub struct EventQueue {
     disconnect_events: VecDeque<NetworkDisconnectEvent>,
     player_join_events: VecDeque<NetworkPlayerJoinEvent>,
     player_leave_events: VecDeque<NetworkPlayerLeaveEvent>,
-    network_events: VecDeque<NetworkEvent>,
+    network_events: VecDeque<NetworkSerializedStruct>,
 }
 
 impl EventQueue {
@@ -36,11 +40,11 @@ impl EventQueue {
         self.player_leave_events.push_back(event);
     }
 
-    pub fn network(&mut self, event: NetworkEvent) {
+    pub fn network(&mut self, event: NetworkSerializedStruct) {
         self.network_events.push_back(event);
     }
 
-    pub fn send_to_world(&mut self, world: &mut World) {
+    pub fn send_to_world(&mut self, world: &mut World, registry: &mut NetworkRegistry) {
         if let Some(connect_event) = self.connect_events.pop_front() {
             let mut events = world
                 .get_resource_mut::<Events<NetworkConnectEvent>>()
@@ -72,8 +76,11 @@ impl EventQueue {
             events.send(player_leave_event);
         }
         if let Some(network_event) = self.network_events.pop_front() {
-            let mut events = world.get_resource_mut::<Events<NetworkEvent>>().unwrap();
-            events.send(network_event);
+            if let Some(entry) = registry.get_entry(&network_event) {
+                if let Some(event) = &mut entry.event {
+                    (event.send_to_world)(world, network_event);
+                }
+            }
         }
     }
 }

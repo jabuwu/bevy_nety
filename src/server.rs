@@ -1,5 +1,7 @@
+use super::events::NetworkEventTraits;
 use super::messages::NetworkMessage;
 use super::player::NetworkPlayer;
+use super::serialized_struct::NetworkSerializedStruct;
 use bevy_nety_protocol::{NetworkHost, NetworkSocket};
 
 pub(crate) struct NetworkServerJoiner {
@@ -29,9 +31,17 @@ impl NetworkServer {
         }
     }
 
-    pub fn send_event(&mut self) {
+    pub fn send_to_all<T>(&mut self, event: T)
+    where
+        T: NetworkEventTraits,
+    {
         for player in self.players.iter_mut() {
-            player.socket.send(NetworkMessage::Event.serialize());
+            player.socket.send(
+                NetworkMessage::Event {
+                    data: NetworkSerializedStruct::from_struct(&event),
+                }
+                .serialize(),
+            );
         }
     }
 }

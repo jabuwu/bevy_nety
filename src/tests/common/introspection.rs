@@ -1,3 +1,4 @@
+use super::test_events::TestGameEvent;
 use crate::prelude::*;
 use bevy::prelude::*;
 
@@ -18,7 +19,7 @@ pub struct Introspection {
     pub disconnect_events: Vec<NetworkDisconnectEvent>,
     pub player_join_events: Vec<NetworkPlayerJoinEvent>,
     pub player_leave_events: Vec<NetworkPlayerLeaveEvent>,
-    pub network_events: Vec<NetworkEvent>,
+    pub test_game_events: Vec<TestGameEvent>,
 }
 
 pub fn capture_events(
@@ -28,7 +29,7 @@ pub fn capture_events(
     mut disconnect_events: EventReader<NetworkDisconnectEvent>,
     mut player_join_events: EventReader<NetworkPlayerJoinEvent>,
     mut player_leave_events: EventReader<NetworkPlayerLeaveEvent>,
-    mut network_events: EventReader<NetworkEvent>,
+    mut test_game_events: EventReader<NetworkEvent<TestGameEvent>>,
 ) {
     for event in connect_events.iter() {
         introspection.connect_events.push(event.clone());
@@ -45,7 +46,7 @@ pub fn capture_events(
     for event in player_leave_events.iter() {
         introspection.player_leave_events.push(event.clone());
     }
-    for event in network_events.iter() {
-        introspection.network_events.push(event.clone());
+    for event in test_game_events.iter() {
+        introspection.test_game_events.push(event.data.clone());
     }
 }
