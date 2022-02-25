@@ -1,6 +1,12 @@
 use crate::{entity::NetworkEntity, player::NetworkPlayer, server::NetworkServerEntity};
 use std::collections::HashMap;
 
+struct NetworkRelevancyEntry {
+    spawned: bool,
+    despawned: bool,
+    relevant: bool,
+}
+
 pub(crate) enum NetworkRelevancyState {
     Spawn,
     Despawn,
@@ -11,29 +17,63 @@ pub(crate) enum NetworkRelevancyState {
 #[derive(Default)]
 pub(crate) struct NetworkRelevancy {
     // TODO: cleanup this hashmap
-    relevancy: HashMap<NetworkPlayer, Vec<NetworkEntity>>,
+    relevancy: HashMap<NetworkPlayer, HashMap<NetworkEntity, NetworkRelevancyEntry>>,
 }
 
 impl NetworkRelevancy {
+    fn get_or_insert_entry(
+        &mut self,
+        player: NetworkPlayer,
+        entity: NetworkEntity,
+    ) -> &mut NetworkRelevancyEntry {
+        let entity_map = self
+            .relevancy
+            .entry(player)
+            .or_insert_with(|| HashMap::new());
+        entity_map
+            .entry(entity)
+            .or_insert_with(|| NetworkRelevancyEntry {
+                relevant: true,
+                spawned: false,
+                despawned: false,
+            })
+    }
+
     pub(crate) fn update(
         &mut self,
         player: NetworkPlayer,
         entity: &NetworkServerEntity,
     ) -> NetworkRelevancyState {
-        let vec = self.relevancy.entry(player).or_insert_with(|| Vec::new());
-        if vec.contains(&entity.handle) {
-            NetworkRelevancyState::Relevant
+        let entry = self.get_or_insert_entry(player, entity.handle);
+        if entry.relevant {
+            if entry.spawned {
+                NetworkRelevancyState::Relevant
+            } else {
+                entry.spawned = true;
+                entry.despawned = false;
+                NetworkRelevancyState::Spawn
+            }
         } else {
-            vec.push(entity.handle);
-            NetworkRelevancyState::Spawn
+            if entry.despawned {
+                NetworkRelevancyState::Despawn
+            } else {
+                entry.despawned = true;
+                entry.spawned = false;
+                NetworkRelevancyState::Irrelevant
+            }
         }
     }
 
-    pub(crate) fn relevant(&self, player: NetworkPlayer, entity: NetworkEntity) -> bool {
-        if let Some(vec) = self.relevancy.get(&player) {
-            vec.contains(&entity)
-        } else {
-            false
-        }
+    pub(crate) fn relevant(&mut self, player: NetworkPlayer, entity: NetworkEntity) -> bool {
+        self.get_or_insert_entry(player, entity).relevant
+    }
+
+    pub(crate) fn set_relevant(
+        &mut self,
+        player: NetworkPlayer,
+        entity: NetworkEntity,
+        relevant: bool,
+    ) {
+        self.get_or_insert_entry(player, entity).relevant = relevant;
     }
 }

@@ -112,4 +112,13 @@ impl NetworkServer {
                 exists: true,
             })
     }
+
+    pub fn set_entity_relevant(
+        &mut self,
+        entity: NetworkEntity,
+        player: NetworkPlayer,
+        relevant: bool,
+    ) {
+        self.relevancy.set_relevant(player, entity, relevant);
+    }
 }
