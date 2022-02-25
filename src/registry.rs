@@ -1,5 +1,5 @@
 use crate::{
-    events::{NetworkEvent, NetworkEventTraits, NetworkServerEvent},
+    events::{NetworkEntityEvent, NetworkEvent, NetworkEventTraits, NetworkServerEvent},
     network_type_name::NetworkTypeName,
     player::NetworkPlayer,
     player_data::NetworkPlayerDataTraits,
@@ -11,6 +11,7 @@ use std::collections::HashMap;
 #[derive(Default)]
 pub struct NetworkRegistryEntry {
     pub(crate) event: Option<NetworkRegistryEvent>,
+    pub(crate) entity_event: Option<NetworkRegistryEntityEvent>,
     pub(crate) player_data: Option<NetworkRegistryPlayerData>,
 }
 
@@ -39,6 +40,37 @@ impl NetworkRegistryEvent {
                         .unwrap();
                     events.send(NetworkServerEvent {
                         from,
+                        data: s.to_struct::<T>().unwrap(),
+                    });
+                },
+            ),
+        }
+    }
+}
+
+pub struct NetworkRegistryEntityEvent {
+    pub(crate) send_to_world: Box<
+        dyn Fn(&mut World, Entity, Option<NetworkPlayer>, NetworkSerializedStruct) + Send + Sync,
+    >,
+}
+
+impl NetworkRegistryEntityEvent {
+    fn new<T>() -> Self
+    where
+        T: NetworkEventTraits,
+    {
+        Self {
+            send_to_world: Box::new(
+                |world: &mut World,
+                 entity: Entity,
+                 from: Option<NetworkPlayer>,
+                 s: NetworkSerializedStruct| {
+                    let mut events = world
+                        .get_resource_mut::<Events<NetworkEntityEvent<T>>>()
+                        .unwrap();
+                    events.send(NetworkEntityEvent {
+                        from,
+                        entity,
                         data: s.to_struct::<T>().unwrap(),
                     });
                 },
@@ -81,6 +113,20 @@ impl NetworkRegistry {
         entry.event.as_mut().unwrap()
     }
 
+    fn get_or_insert_entity_event<T>(
+        &mut self,
+        type_name: NetworkTypeName,
+    ) -> &mut NetworkRegistryEntityEvent
+    where
+        T: NetworkEventTraits,
+    {
+        let entry = self.get_or_insert_entry(type_name);
+        if entry.entity_event.is_none() {
+            entry.entity_event = Some(NetworkRegistryEntityEvent::new::<T>());
+        }
+        entry.entity_event.as_mut().unwrap()
+    }
+
     fn get_or_insert_player_data<T>(
         &mut self,
         type_name: NetworkTypeName,
@@ -100,6 +146,13 @@ impl NetworkRegistry {
         T: NetworkEventTraits,
     {
         self.get_or_insert_event::<T>(NetworkTypeName::of::<T>());
+    }
+
+    pub fn add_network_entity_event<T>(&mut self)
+    where
+        T: NetworkEventTraits,
+    {
+        self.get_or_insert_entity_event::<T>(NetworkTypeName::of::<T>());
     }
 
     pub fn add_network_player_data<T>(&mut self)

@@ -23,15 +23,15 @@ impl Default for NetworkEntity {
 
 #[derive(Component, Default)]
 pub struct NetworkEntityOwner {
-    pub events: VecDeque<NetworkSerializedStruct>,
+    pub(crate) events: VecDeque<NetworkSerializedStruct>,
 }
 
 impl NetworkEntityOwner {
-    pub fn send<T>(&mut self, event: &T)
+    pub fn send<T>(&mut self, event: T)
     where
         T: NetworkEventTraits,
     {
         self.events
-            .push_back(NetworkSerializedStruct::from_struct(event));
+            .push_back(NetworkSerializedStruct::from_struct(&event));
     }
 }

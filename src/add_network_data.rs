@@ -1,5 +1,5 @@
 use crate::{
-    events::{NetworkEvent, NetworkEventTraits, NetworkServerEvent},
+    events::{NetworkEntityEvent, NetworkEvent, NetworkEventTraits, NetworkServerEvent},
     network::Network,
     player_data::NetworkPlayerDataTraits,
 };
@@ -9,6 +9,10 @@ const ERROR_MESSAGE: &str = "Can't register network event, please add the Networ
 
 pub trait AddNetworkData {
     fn add_network_event<T>(&mut self) -> &mut Self
+    where
+        T: NetworkEventTraits;
+
+    fn add_network_entity_event<T>(&mut self) -> &mut Self
     where
         T: NetworkEventTraits;
 
@@ -29,6 +33,19 @@ impl AddNetworkData for App {
             .get_resource_mut::<Network>()
             .expect(ERROR_MESSAGE);
         network.registry.add_network_event::<T>();
+        self
+    }
+
+    fn add_network_entity_event<T>(&mut self) -> &mut Self
+    where
+        T: NetworkEventTraits,
+    {
+        self.add_event::<NetworkEntityEvent<T>>();
+        let mut network = self
+            .world
+            .get_resource_mut::<Network>()
+            .expect(ERROR_MESSAGE);
+        network.registry.add_network_entity_event::<T>();
         self
     }
 

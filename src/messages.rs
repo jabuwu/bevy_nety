@@ -33,6 +33,11 @@ pub enum NetworkMessage {
         entity: NetworkEntity,
         owner: bool,
     },
+    EntityEvent {
+        entity: NetworkEntity,
+        from: Option<NetworkPlayer>,
+        data: NetworkSerializedStruct,
+    },
 }
 
 impl NetworkMessage {

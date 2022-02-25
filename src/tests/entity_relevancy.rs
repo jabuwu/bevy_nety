@@ -139,3 +139,26 @@ fn ownership_overrides() {
     assert_eq!(server_app.world.entities().len(), ENTITY_COUNT);
     assert_eq!(client_app.world.entities().len(), 0);
 }
+
+#[test]
+fn server_overrides() {
+    let mut pseudo_net = PseudoNetwork::new();
+    let mut app = App::new();
+    app.setup_for_tests();
+    app.network_mut()
+        .start_server_client(vec![pseudo_net.create_host()]);
+    flush_network(vec![&mut app]);
+    let mut network_entities = vec![];
+    for _ in 0..ENTITY_COUNT {
+        let network_entity = NetworkEntity::new();
+        network_entities.push(network_entity);
+        app.world.spawn().insert(network_entity);
+        let me = app.network().me().unwrap();
+        app.network_mut()
+            .server_mut()
+            .unwrap()
+            .set_entity_relevant(network_entity, me, false);
+    }
+    flush_network(vec![&mut app]);
+    assert_eq!(app.world.entities().len(), ENTITY_COUNT);
+}

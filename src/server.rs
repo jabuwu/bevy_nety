@@ -100,6 +100,24 @@ impl NetworkServer {
         }
     }
 
+    pub fn send_to_entity<T>(&mut self, entity: NetworkEntity, event: T)
+    where
+        T: NetworkEventTraits,
+    {
+        for player in self.players.iter_mut() {
+            if self.relevancy.relevant(player.handle, entity) {
+                player.socket.send(
+                    NetworkMessage::EntityEvent {
+                        entity,
+                        from: None,
+                        data: NetworkSerializedStruct::from_struct(&event),
+                    }
+                    .serialize(),
+                );
+            }
+        }
+    }
+
     pub(crate) fn players(&self) -> Vec<NetworkPlayer> {
         self.players.iter().map(|p| p.handle).collect()
     }

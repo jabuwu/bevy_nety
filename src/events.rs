@@ -1,5 +1,6 @@
 use crate::player::NetworkPlayer;
 use bevy::ecs::system::Resource;
+use bevy::prelude::Entity;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -34,6 +35,12 @@ pub struct NetworkEvent<T: Resource> {
 
 pub struct NetworkServerEvent<T: Resource> {
     pub from: NetworkPlayer,
+    pub data: T,
+}
+
+pub struct NetworkEntityEvent<T: Resource> {
+    pub entity: Entity,
+    pub from: Option<NetworkPlayer>,
     pub data: T,
 }
 

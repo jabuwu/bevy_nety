@@ -1,5 +1,5 @@
 use super::test_structs::TestGameEvent;
-use crate::prelude::*;
+use crate::{events::NetworkEntityEvent, prelude::*};
 use bevy::prelude::*;
 
 pub struct IntrospectionPlugin;
@@ -21,6 +21,7 @@ pub struct Introspection {
     pub player_leave_events: Vec<NetworkPlayerLeaveEvent>,
     pub test_game_events_on_client: Vec<NetworkEvent<TestGameEvent>>,
     pub test_game_events_on_server: Vec<NetworkServerEvent<TestGameEvent>>,
+    pub test_entity_events: Vec<NetworkEntityEvent<TestGameEvent>>,
 }
 
 pub fn capture_events(
@@ -32,6 +33,7 @@ pub fn capture_events(
     mut player_leave_events: EventReader<NetworkPlayerLeaveEvent>,
     mut test_game_events_on_client: EventReader<NetworkEvent<TestGameEvent>>,
     mut test_game_events_on_server: EventReader<NetworkServerEvent<TestGameEvent>>,
+    mut test_entity_events: EventReader<NetworkEntityEvent<TestGameEvent>>,
 ) {
     for event in connect_events.iter() {
         introspection.connect_events.push(event.clone());
@@ -60,5 +62,12 @@ pub fn capture_events(
                 from: event.from,
                 data: event.data.clone(),
             });
+    }
+    for event in test_entity_events.iter() {
+        introspection.test_entity_events.push(NetworkEntityEvent {
+            entity: event.entity,
+            from: event.from,
+            data: event.data.clone(),
+        });
     }
 }

@@ -5,6 +5,7 @@ struct NetworkRelevancyEntry {
     spawned: bool,
     despawned: bool,
     relevant: bool,
+    manual_relevancy: bool,
 }
 
 pub(crate) enum NetworkRelevancyState {
@@ -33,9 +34,10 @@ impl NetworkRelevancy {
         entity_map
             .entry(entity)
             .or_insert_with(|| NetworkRelevancyEntry {
-                relevant: true,
                 spawned: false,
                 despawned: false,
+                relevant: true,
+                manual_relevancy: true,
             })
     }
 
@@ -46,6 +48,7 @@ impl NetworkRelevancy {
         force_relevant: bool,
     ) -> NetworkRelevancyState {
         let entry = self.get_or_insert_entry(player, entity.handle);
+        entry.relevant = entry.manual_relevancy || force_relevant;
         if entry.relevant || force_relevant {
             if entry.spawned {
                 NetworkRelevancyState::Relevant
@@ -75,6 +78,6 @@ impl NetworkRelevancy {
         entity: NetworkEntity,
         relevant: bool,
     ) {
-        self.get_or_insert_entry(player, entity).relevant = relevant;
+        self.get_or_insert_entry(player, entity).manual_relevancy = relevant;
     }
 }

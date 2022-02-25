@@ -16,6 +16,7 @@ impl AppSetupForTests for App {
             .add_plugin(NetworkPlugin)
             .add_plugin(IntrospectionPlugin)
             .add_network_event::<TestGameEvent>()
+            .add_network_entity_event::<TestGameEvent>()
             .add_network_player_data::<TestPlayerData>()
     }
 

@@ -288,6 +288,7 @@ pub fn update_network(world: &mut World) {
     update_connector(&mut network);
     client_initialize(&mut network);
     server_entities_diff(&mut network, world);
+    entity_owner_send_events(&mut network, world);
     server_accept_sockets(&mut network);
     client_receive_messages(&mut network);
     server_receive_messages_from_joiners(&mut network);
@@ -295,8 +296,8 @@ pub fn update_network(world: &mut World) {
     server_receive_messages_from_players(&mut network);
     client_check_disconnect(&mut network);
     server_check_disconnects(&mut network);
-    send_events(&mut network, world);
     client_spawn_despawn_entities(&mut network, world);
+    send_events(&mut network, world);
     update_entities(&mut network, world);
 }
 
@@ -393,7 +394,7 @@ pub fn server_entities_diff(network: &mut Network, world: &mut World) {
             } else {
                 is_local_player
             };
-            match relevancy.update(player.handle, network_entity, is_owner) {
+            match relevancy.update(player.handle, network_entity, is_owner || is_local_player) {
                 NetworkRelevancyState::Spawn => {
                     if !is_local_player {
                         player
@@ -445,6 +446,56 @@ pub fn server_entities_diff(network: &mut Network, world: &mut World) {
                 network_entity.owner = None;
             }
         }
+    }
+}
+
+pub fn entity_owner_send_events(network: &mut Network, world: &mut World) {
+    let Network { state, .. } = network;
+    match state {
+        NetworkState::Connected { server, client } => {
+            let mut query = world.query::<(&NetworkEntity, &mut NetworkEntityOwner)>();
+            for (network_entity, mut network_entity_owner) in query.iter_mut(world) {
+                while let Some(event) = network_entity_owner.events.pop_back() {
+                    if let Some(server) = server {
+                        let NetworkServer {
+                            players,
+                            relevancy,
+                            local_player,
+                            ..
+                        } = server;
+                        for player in players.iter_mut() {
+                            let is_local_player = if let Some(local_player) = local_player {
+                                player.handle == *local_player
+                            } else {
+                                false
+                            };
+                            if !is_local_player
+                                && relevancy.relevant(player.handle, *network_entity)
+                            {
+                                player.socket.send(
+                                    NetworkMessage::EntityEvent {
+                                        entity: *network_entity,
+                                        from: None,
+                                        data: event.clone(),
+                                    }
+                                    .serialize(),
+                                );
+                            }
+                        }
+                    } else if let Some(client) = client {
+                        client.socket.send(
+                            NetworkMessage::EntityEvent {
+                                entity: *network_entity,
+                                from: None,
+                                data: event,
+                            }
+                            .serialize(),
+                        );
+                    }
+                }
+            }
+        }
+        _ => {}
     }
 }
 
@@ -512,6 +563,9 @@ pub fn client_receive_messages(network: &mut Network) {
                 if let Some(entity) = client.entities.get_mut(&entity) {
                     entity.owner = owner;
                 }
+            }
+            NetworkMessage::EntityEvent { entity, from, data } => {
+                event_queue.network_entity(entity, from, data);
             }
             _ => {
                 // TODO: disconnect for bad data?
@@ -597,13 +651,67 @@ pub fn server_receive_messages_from_players(network: &mut Network) {
         state, event_queue, ..
     } = network;
     let server = get_server_from_state!(state);
-    for player in server.players.iter_mut() {
+    let NetworkServer {
+        players,
+        local_player,
+        relevancy,
+        entities,
+        ..
+    } = server;
+    let players_unsafe = unsafe { &mut *(players as *mut Vec<NetworkServerPlayer>) };
+    for player in players.iter_mut() {
         player.socket.update();
         if let Some(message) = player.socket.receive() {
             let message = NetworkMessage::deserialize(&message);
             match message {
                 NetworkMessage::Event { data } => {
                     event_queue.network_server(player.handle, data);
+                }
+                NetworkMessage::EntityEvent { entity, from, data } => {
+                    if let Some(from) = from {
+                        if let Some(server_entity) = entities.get(&entity) {
+                            let local_owner = if let Some(owner) = server_entity.owner {
+                                if let Some(local_player) = local_player {
+                                    *local_player == owner
+                                } else {
+                                    false
+                                }
+                            } else {
+                                true
+                            };
+                            if local_owner {
+                                event_queue.network_entity(entity, Some(from), data);
+                            } else if let Some(owner) = server_entity.owner {
+                                if let Some(owner) =
+                                    players_unsafe.iter_mut().find(|p| p.handle == owner)
+                                {
+                                    owner.socket.send(
+                                        NetworkMessage::EntityEvent {
+                                            entity,
+                                            from: Some(from),
+                                            data,
+                                        }
+                                        .serialize(),
+                                    );
+                                }
+                            }
+                        }
+                    } else {
+                        for other_player in players_unsafe.iter_mut() {
+                            if player.handle != other_player.handle
+                                && relevancy.relevant(other_player.handle, entity)
+                            {
+                                other_player.socket.send(
+                                    NetworkMessage::EntityEvent {
+                                        entity,
+                                        from: None,
+                                        data: data.clone(),
+                                    }
+                                    .serialize(),
+                                );
+                            }
+                        }
+                    }
                 }
                 _ => {
                     // TODO: disconnect for bad data?
