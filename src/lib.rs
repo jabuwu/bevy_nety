@@ -23,7 +23,7 @@ pub mod prelude {
     pub use super::{
         add_network_data::AddNetworkData,
         client::NetworkClient,
-        entity::NetworkEntity,
+        entity::{NetworkEntity, NetworkEntityOwner},
         events::{
             NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent, NetworkEvent,
             NetworkPlayerJoinEvent, NetworkPlayerLeaveEvent, NetworkServerEvent,

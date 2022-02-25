@@ -18,6 +18,7 @@ pub(crate) struct NetworkClientEntity {
     pub(crate) initialized: bool,
     pub(crate) exists: bool,
     pub(crate) local_entity: Option<Entity>,
+    pub(crate) owner: bool,
 }
 
 pub struct NetworkClient {
@@ -55,5 +56,13 @@ impl NetworkClient {
 
     pub(crate) fn players(&self) -> Vec<NetworkPlayer> {
         self.players.iter().map(|p| p.handle).collect()
+    }
+
+    pub(crate) fn is_entity_owner(&mut self, entity: NetworkEntity) -> bool {
+        if let Some(entity) = self.entities.get(&entity) {
+            entity.owner
+        } else {
+            false
+        }
     }
 }

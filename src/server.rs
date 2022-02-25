@@ -23,6 +23,9 @@ pub(crate) struct NetworkServerPlayer {
 pub(crate) struct NetworkServerEntity {
     pub(crate) handle: NetworkEntity,
     pub(crate) exists: bool,
+    pub(crate) owner_changed: bool,
+    pub(crate) owner: Option<NetworkPlayer>,
+    pub(crate) last_owner: Option<NetworkPlayer>,
 }
 
 pub struct NetworkServer {
@@ -110,6 +113,9 @@ impl NetworkServer {
             .or_insert_with(|| NetworkServerEntity {
                 handle: entity,
                 exists: true,
+                owner: None,
+                owner_changed: false,
+                last_owner: None,
             })
     }
 
@@ -120,5 +126,27 @@ impl NetworkServer {
         relevant: bool,
     ) {
         self.relevancy.set_relevant(player, entity, relevant);
+    }
+
+    pub fn set_entity_owner(&mut self, entity: NetworkEntity, owner: Option<NetworkPlayer>) {
+        let entity = self.get_or_insert_entity(entity);
+        if !entity.owner_changed {
+            entity.last_owner = entity.owner;
+        }
+        entity.owner = owner;
+        entity.owner_changed = true;
+    }
+
+    pub(crate) fn is_entity_owner(&mut self, entity: NetworkEntity) -> bool {
+        let entity = self.get_or_insert_entity(entity);
+        if let Some(owner) = entity.owner {
+            if let Some(local_player) = self.local_player {
+                local_player == owner
+            } else {
+                false
+            }
+        } else {
+            true
+        }
     }
 }

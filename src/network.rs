@@ -1,6 +1,6 @@
 use crate::{
     client::{NetworkClient, NetworkClientEntity, NetworkClientPlayer},
-    entity::NetworkEntity,
+    entity::{NetworkEntity, NetworkEntityOwner},
     event_queue::EventQueue,
     events::{
         NetworkConnectEvent, NetworkConnectingEvent, NetworkDisconnectEvent,
@@ -381,14 +381,19 @@ pub fn server_entities_diff(network: &mut Network, world: &mut World) {
         }
     }
     entities.retain(|_, entity| entity.exists);
-    for player in players.iter_mut() {
-        for (handle, network_entity) in entities.iter() {
+    for (handle, network_entity) in entities.iter_mut() {
+        for player in players.iter_mut() {
             let is_local_player = if let Some(local_player) = local_player {
                 player.handle == *local_player
             } else {
                 false
             };
-            match relevancy.update(player.handle, network_entity) {
+            let is_owner = if let Some(owner) = network_entity.owner {
+                owner == player.handle
+            } else {
+                is_local_player
+            };
+            match relevancy.update(player.handle, network_entity, is_owner) {
                 NetworkRelevancyState::Spawn => {
                     if !is_local_player {
                         player
@@ -405,6 +410,39 @@ pub fn server_entities_diff(network: &mut Network, world: &mut World) {
                 }
                 NetworkRelevancyState::Relevant => {}
                 NetworkRelevancyState::Irrelevant => {}
+            }
+            if network_entity.owner_changed {
+                if let Some(owner) = network_entity.owner {
+                    if owner == player.handle && !is_local_player {
+                        player.socket.send(
+                            NetworkMessage::EntityOwner {
+                                entity: network_entity.handle,
+                                owner: true,
+                            }
+                            .serialize(),
+                        );
+                    }
+                }
+                if let Some(last_owner) = network_entity.last_owner {
+                    if last_owner == player.handle && !is_local_player {
+                        player.socket.send(
+                            NetworkMessage::EntityOwner {
+                                entity: network_entity.handle,
+                                owner: false,
+                            }
+                            .serialize(),
+                        );
+                    }
+                }
+            }
+        }
+        if network_entity.owner_changed {
+            network_entity.last_owner = None;
+            network_entity.owner_changed = false;
+        }
+        if let Some(owner) = network_entity.owner {
+            if players.iter().find(|p| p.handle == owner).is_none() {
+                network_entity.owner = None;
             }
         }
     }
@@ -461,12 +499,18 @@ pub fn client_receive_messages(network: &mut Network) {
                         initialized: false,
                         exists: true,
                         local_entity: None,
+                        owner: false,
                     },
                 );
             }
             NetworkMessage::EntityDespawn { entity } => {
                 if let Some(entity) = client.entities.get_mut(&entity) {
                     entity.exists = false;
+                }
+            }
+            NetworkMessage::EntityOwner { entity, owner } => {
+                if let Some(entity) = client.entities.get_mut(&entity) {
+                    entity.owner = owner;
                 }
             }
             _ => {
@@ -645,6 +689,32 @@ fn update_entities(network: &mut Network, world: &mut World) {
         let entities: Vec<Entity> = query.iter(world).map(|e| e).collect();
         for entity in entities {
             world.entity_mut(entity).despawn();
+        }
+    } else {
+        let unsafe_world = unsafe { &mut *(world as *mut World) };
+        let mut query = world.query::<(Entity, &NetworkEntity, Option<&NetworkEntityOwner>)>();
+        for (entity, network_entity, network_entity_owner) in query.iter(world) {
+            let is_owner = match &mut network.state {
+                NetworkState::Connected { server, client } => {
+                    if let Some(server) = server {
+                        server.is_entity_owner(*network_entity)
+                    } else if let Some(client) = client {
+                        client.is_entity_owner(*network_entity)
+                    } else {
+                        false
+                    }
+                }
+                _ => false,
+            };
+            if is_owner && network_entity_owner.is_none() {
+                unsafe_world
+                    .entity_mut(entity)
+                    .insert(NetworkEntityOwner::default());
+            } else if !is_owner && network_entity_owner.is_some() {
+                unsafe_world
+                    .entity_mut(entity)
+                    .remove::<NetworkEntityOwner>();
+            }
         }
     }
 }

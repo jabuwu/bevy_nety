@@ -43,9 +43,10 @@ impl NetworkRelevancy {
         &mut self,
         player: NetworkPlayer,
         entity: &NetworkServerEntity,
+        force_relevant: bool,
     ) -> NetworkRelevancyState {
         let entry = self.get_or_insert_entry(player, entity.handle);
-        if entry.relevant {
+        if entry.relevant || force_relevant {
             if entry.spawned {
                 NetworkRelevancyState::Relevant
             } else {

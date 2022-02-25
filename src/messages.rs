@@ -29,6 +29,10 @@ pub enum NetworkMessage {
     EntityDespawn {
         entity: NetworkEntity,
     },
+    EntityOwner {
+        entity: NetworkEntity,
+        owner: bool,
+    },
 }
 
 impl NetworkMessage {
