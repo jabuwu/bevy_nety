@@ -1,29 +1,17 @@
 use super::common::prelude::*;
-use bevy::prelude::*;
 
-/// Player ordering should be the same between server/clients
 #[test]
 fn ensure_order() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client1_app = App::new();
-    let mut client2_app = App::new();
-    server_app.setup_for_tests();
-    client1_app.setup_for_tests();
-    client2_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server(vec![pseudo_net.create_host()]);
-    client1_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    client2_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    let server_players = server_app.network().players();
-    let client1_players = client1_app.network().players();
-    let client2_players = client2_app.network().players();
+    // Player ordering should be the same between server/clients
+    // This test has the side effect of also testing that player IDs are identical between peers
+    let mut env = TestEnvironment::default();
+    env.create_server("server");
+    env.create_client("client1", "server");
+    env.create_client("client2", "server");
+    env.flush_network();
+    let server_players = env["server"].network().players();
+    let client1_players = env["client1"].network().players();
+    let client2_players = env["client2"].network().players();
     assert_eq!(server_players.len(), 2);
     assert_eq!(client1_players.len(), 2);
     assert_eq!(client2_players.len(), 2);

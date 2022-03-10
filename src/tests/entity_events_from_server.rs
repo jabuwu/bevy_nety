@@ -1,114 +1,137 @@
 use super::common::prelude::*;
 use crate::prelude::*;
-use bevy::prelude::*;
+
+// Server should send entity events after relevancy updates
+// The following tests help ensure this:
+// - server_client_send_to_entity_receive_from_irrelevant
+// - server_send_to_entity_ignore_irrelevant
+// Might need more checks to guarantee this
 
 #[test]
 fn server_client_send_to_entity() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client_app = App::new();
-    server_app.setup_for_tests();
-    client_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server_client(vec![pseudo_net.create_host()]);
-    client_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client_app]);
+    // Server receives entity messages
+    // Client does too if its relevant, in this case it is
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server_client("server");
+    env.create_client("client", "server");
+    env.flush_network();
+
     let network_entity = NetworkEntity::new();
-    let entity = server_app.world.spawn().insert(network_entity).id();
-    server_app
-        .network_mut()
-        .server_mut()
-        .unwrap()
+    let entity = env["server"].world().spawn().insert(network_entity).id();
+    env.flush_network();
+    env["server"]
+        .server()
         .send_to_entity(network_entity, TestGameEvent { foo: "bar".into() });
-    flush_network(vec![&mut server_app, &mut client_app]);
-    assert_eq!(server_app.introspect().test_entity_events.len(), 1);
-    assert_eq!(server_app.introspect().test_entity_events[0].entity, entity);
-    assert_eq!(server_app.introspect().test_entity_events[0].from, None);
+    env.flush_network();
+
+    assert_eq!(env["server"].introspect().test_entity_events.len(), 1);
     assert_eq!(
-        server_app.introspect().test_entity_events[0].data.foo,
+        env["server"].introspect().test_entity_events[0].entity,
+        entity
+    );
+    assert_eq!(env["server"].introspect().test_entity_events[0].from, None);
+    assert_eq!(
+        env["server"].introspect().test_entity_events[0].data.foo,
         "bar"
     );
-    assert_eq!(client_app.introspect().test_entity_events.len(), 1);
-    assert_eq!(client_app.introspect().test_entity_events[0].entity, entity);
-    assert_eq!(client_app.introspect().test_entity_events[0].from, None);
+    assert_eq!(env["client"].introspect().test_entity_events.len(), 1);
     assert_eq!(
-        client_app.introspect().test_entity_events[0].data.foo,
+        env["client"].introspect().test_entity_events[0].entity,
+        entity
+    );
+    assert_eq!(env["client"].introspect().test_entity_events[0].from, None);
+    assert_eq!(
+        env["client"].introspect().test_entity_events[0].data.foo,
         "bar"
     );
 }
 
 #[test]
 fn server_client_send_to_entity_receive_from_irrelevant() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut app = App::new();
-    app.setup_for_tests();
-    app.network_mut()
-        .start_server_client(vec![pseudo_net.create_host()]);
-    let server_me = app.network().me().unwrap();
-    flush_network(vec![&mut app]);
+    // Server always receives entity events, even if irrelevant
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server_client("server");
+    env.flush_network();
+
+    let server_me = env["server"].network().me().unwrap();
     let network_entity = NetworkEntity::new();
-    let entity = app.world.spawn().insert(network_entity).id();
-    app.network_mut()
-        .server_mut()
-        .unwrap()
+    let entity = env["server"].world().spawn().insert(network_entity).id();
+    env["server"]
+        .server()
         .set_entity_relevant(network_entity, server_me, false);
-    flush_network(vec![&mut app]);
-    app.network_mut()
-        .server_mut()
-        .unwrap()
+    env["server"]
+        .server()
         .send_to_entity(network_entity, TestGameEvent { foo: "bar".into() });
-    flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_entity_events.len(), 1);
-    assert_eq!(app.introspect().test_entity_events[0].entity, entity);
-    assert_eq!(app.introspect().test_entity_events[0].from, None);
-    assert_eq!(app.introspect().test_entity_events[0].data.foo, "bar");
+    env.flush_network();
+
+    assert_eq!(env["server"].introspect().test_entity_events.len(), 1);
+    assert_eq!(
+        env["server"].introspect().test_entity_events[0].entity,
+        entity
+    );
+    assert_eq!(env["server"].introspect().test_entity_events[0].from, None);
+    assert_eq!(
+        env["server"].introspect().test_entity_events[0].data.foo,
+        "bar"
+    );
 }
 
 #[test]
 fn server_send_to_entity() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client1_app = App::new();
-    let mut client2_app = App::new();
-    server_app.setup_for_tests();
-    client1_app.setup_for_tests();
-    client2_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server(vec![pseudo_net.create_host()]);
-    client1_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    client2_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.create_client("client", "server");
+    env.flush_network();
+
     let network_entity = NetworkEntity::new();
-    let entity = server_app.world.spawn().insert(network_entity).id();
-    server_app
-        .network_mut()
-        .server_mut()
-        .unwrap()
-        .set_entity_relevant(network_entity, client1_app.network().me().unwrap(), false);
-    server_app
-        .network_mut()
-        .server_mut()
-        .unwrap()
+    let entity = env["server"].world().spawn().insert(network_entity).id();
+    env.flush_network();
+    env["server"]
+        .server()
         .send_to_entity(network_entity, TestGameEvent { foo: "bar".into() });
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.introspect().test_entity_events.len(), 0);
-    assert_eq!(client1_app.introspect().test_entity_events.len(), 0);
-    assert_eq!(client2_app.introspect().test_entity_events.len(), 1);
+    env.flush_network();
+
+    assert_eq!(env["server"].introspect().test_entity_events.len(), 0);
+    assert_eq!(env["client"].introspect().test_entity_events.len(), 1);
     assert_eq!(
-        client2_app.introspect().test_entity_events[0].entity,
+        env["client"].introspect().test_entity_events[0].entity,
         entity
     );
-    assert_eq!(client2_app.introspect().test_entity_events[0].from, None);
+    assert_eq!(env["client"].introspect().test_entity_events[0].from, None);
     assert_eq!(
-        client2_app.introspect().test_entity_events[0].data.foo,
+        env["client"].introspect().test_entity_events[0].data.foo,
         "bar"
     );
+}
+
+#[test]
+fn server_send_to_entity_ignore_irrelevant() {
+    // set to irrelevant and then send entity event
+    // client should not receive the event
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.create_client("client", "server");
+    env.flush_network();
+
+    let client_me = env["client"].network().me().unwrap();
+    let network_entity = NetworkEntity::new();
+    env["server"].world().spawn().insert(network_entity).id();
+    env.flush_network();
+    env["server"]
+        .server()
+        .set_entity_relevant(network_entity, client_me, false);
+    env["server"]
+        .server()
+        .send_to_entity(network_entity, TestGameEvent { foo: "bar".into() });
+    env.flush_network();
+
+    assert_eq!(env["server"].introspect().test_entity_events.len(), 0);
+    assert_eq!(env["client"].introspect().test_entity_events.len(), 0);
 }

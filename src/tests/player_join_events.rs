@@ -1,225 +1,213 @@
 use super::common::prelude::*;
-use bevy::prelude::*;
 
 #[test]
 fn local_single() {
-    let mut app = App::new();
-    app.setup_for_tests();
-    app.network_mut().start_local();
-    flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().player_join_events.len(), 1);
-    assert_eq!(app.introspect().player_join_events[0].me, true);
+    let mut env = TestEnvironment::default();
+    env.create_local("local");
+    env.flush_network();
+    let me = env["local"].network().me().unwrap();
+    assert_eq!(env["local"].introspect().player_join_events.len(), 1);
+    assert_eq!(env["local"].introspect().player_join_events[0].me, true);
     assert_eq!(
-        app.introspect().player_join_events[0].existing_player,
+        env["local"].introspect().player_join_events[0].existing_player,
         false
     );
-    assert_eq!(
-        app.introspect().player_join_events[0].player,
-        app.network().me().unwrap()
-    );
+    assert_eq!(env["local"].introspect().player_join_events[0].player, me);
 }
 
 #[test]
 fn server_client_single() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut app = App::new();
-    app.setup_for_tests();
-    app.network_mut()
-        .start_server_client(vec![pseudo_net.create_host()]);
-    flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().player_join_events.len(), 1);
-    assert_eq!(app.introspect().player_join_events[0].me, true);
+    let mut env = TestEnvironment::default();
+    env.create_server_client("server");
+    env.flush_network();
+    let me = env["server"].network().me().unwrap();
+    assert_eq!(env["server"].introspect().player_join_events.len(), 1);
+    assert_eq!(env["server"].introspect().player_join_events[0].me, true);
     assert_eq!(
-        app.introspect().player_join_events[0].existing_player,
+        env["server"].introspect().player_join_events[0].existing_player,
         false
     );
-    assert_eq!(
-        app.introspect().player_join_events[0].player,
-        app.network().me().unwrap()
-    );
+    assert_eq!(env["server"].introspect().player_join_events[0].player, me);
 }
 
 #[test]
 fn server_client_multiple() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client_app = App::new();
-    server_app.setup_for_tests();
-    client_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server_client(vec![pseudo_net.create_host()]);
-    flush_network(vec![&mut server_app, &mut client_app]);
-    assert_eq!(server_app.introspect().player_join_events.len(), 1);
-    assert_eq!(server_app.introspect().player_join_events[0].me, true);
+    let mut env = TestEnvironment::default();
+
+    env.create_server_client("server");
+    env.flush_network();
+
+    let server_me = env["server"].network().me().unwrap();
+    assert_eq!(env["server"].introspect().player_join_events.len(), 1);
+    assert_eq!(env["server"].introspect().player_join_events[0].me, true);
     assert_eq!(
-        server_app.introspect().player_join_events[0].existing_player,
+        env["server"].introspect().player_join_events[0].existing_player,
         false
     );
     assert_eq!(
-        server_app.introspect().player_join_events[0].player,
-        server_app.network().me().unwrap()
+        env["server"].introspect().player_join_events[0].player,
+        server_me
     );
-    client_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client_app]);
-    assert_eq!(server_app.introspect().player_join_events.len(), 2);
-    assert_eq!(server_app.introspect().player_join_events[1].me, false);
+
+    env.create_client("client", "server");
+    env.flush_network();
+    let client_me = env["client"].network().me().unwrap();
+    assert_eq!(env["server"].introspect().player_join_events.len(), 2);
     assert_eq!(
-        server_app.introspect().player_join_events[1].existing_player,
+        env["server"].introspect().player_join_events[1].player,
+        client_me
+    );
+    assert_eq!(env["server"].introspect().player_join_events[1].me, false);
+    assert_eq!(
+        env["server"].introspect().player_join_events[1].existing_player,
         false
     );
 }
 
 #[test]
 fn server_single() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client_app = App::new();
-    server_app.setup_for_tests();
-    client_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server(vec![pseudo_net.create_host()]);
-    flush_network(vec![&mut server_app, &mut client_app]);
-    assert_eq!(server_app.introspect().player_join_events.len(), 0);
-    client_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client_app]);
-    assert_eq!(server_app.introspect().player_join_events.len(), 1);
-    assert_eq!(server_app.introspect().player_join_events[0].me, false);
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.flush_network();
+
+    assert_eq!(env["server"].introspect().player_join_events.len(), 0);
+
+    env.create_client("client", "server");
+    env.flush_network();
+    let client_me = env["client"].network().me().unwrap();
+    assert_eq!(env["server"].introspect().player_join_events.len(), 1);
     assert_eq!(
-        server_app.introspect().player_join_events[0].existing_player,
+        env["server"].introspect().player_join_events[0].player,
+        client_me
+    );
+    assert_eq!(env["server"].introspect().player_join_events[0].me, false);
+    assert_eq!(
+        env["server"].introspect().player_join_events[0].existing_player,
         false
     );
 }
 
 #[test]
 fn server_multiple() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client1_app = App::new();
-    let mut client2_app = App::new();
-    server_app.setup_for_tests();
-    client1_app.setup_for_tests();
-    client2_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server(vec![pseudo_net.create_host()]);
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.introspect().player_join_events.len(), 0);
-    client1_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.introspect().player_join_events.len(), 1);
-    assert_eq!(server_app.introspect().player_join_events[0].me, false);
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.flush_network();
+    assert_eq!(env["server"].introspect().player_join_events.len(), 0);
+
+    env.create_client("client1", "server");
+    env.flush_network();
+    let client1_me = env["client1"].network().me().unwrap();
+    assert_eq!(env["server"].introspect().player_join_events.len(), 1);
     assert_eq!(
-        server_app.introspect().player_join_events[0].existing_player,
+        env["server"].introspect().player_join_events[0].player,
+        client1_me
+    );
+    assert_eq!(env["server"].introspect().player_join_events[0].me, false);
+    assert_eq!(
+        env["server"].introspect().player_join_events[0].existing_player,
         false
     );
-    client2_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.introspect().player_join_events.len(), 2);
-    assert_eq!(server_app.introspect().player_join_events[1].me, false);
+
+    env.create_client("client2", "server");
+    env.flush_network();
+    let client2_me = env["client2"].network().me().unwrap();
+    assert_eq!(env["server"].introspect().player_join_events.len(), 2);
     assert_eq!(
-        server_app.introspect().player_join_events[1].existing_player,
+        env["server"].introspect().player_join_events[1].player,
+        client2_me
+    );
+    assert_eq!(env["server"].introspect().player_join_events[1].me, false);
+    assert_eq!(
+        env["server"].introspect().player_join_events[1].existing_player,
         false
     );
 }
 
 #[test]
 fn client_single() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client_app = App::new();
-    server_app.setup_for_tests();
-    client_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server(vec![pseudo_net.create_host()]);
-    flush_network(vec![&mut server_app, &mut client_app]);
-    assert_eq!(client_app.introspect().player_join_events.len(), 0);
-    client_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client_app]);
-    assert_eq!(client_app.introspect().player_join_events.len(), 1);
-    assert_eq!(client_app.introspect().player_join_events[0].me, true);
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.create_app("client");
+    env.flush_network();
+    assert_eq!(env["client"].introspect().player_join_events.len(), 0);
+
+    env.start_client("client", "server");
+    env.flush_network();
+
+    let client_me = env["client"].network().me().unwrap();
+    assert_eq!(env["client"].introspect().player_join_events.len(), 1);
+    assert_eq!(env["client"].introspect().player_join_events[0].me, true);
     assert_eq!(
-        client_app.introspect().player_join_events[0].existing_player,
+        env["client"].introspect().player_join_events[0].existing_player,
         false
     );
     assert_eq!(
-        client_app.introspect().player_join_events[0].player,
-        client_app.network().me().unwrap()
+        env["client"].introspect().player_join_events[0].player,
+        client_me
     );
 }
 
 #[test]
 fn client_multiple() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client1_app = App::new();
-    let mut client2_app = App::new();
-    server_app.setup_for_tests();
-    client1_app.setup_for_tests();
-    client2_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server(vec![pseudo_net.create_host()]);
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(client1_app.introspect().player_join_events.len(), 0);
-    client1_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(client1_app.introspect().player_join_events.len(), 1);
-    assert_eq!(client1_app.introspect().player_join_events[0].me, true);
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.create_app("client1");
+    env.create_app("client2");
+    env.flush_network();
+    assert_eq!(env["client1"].introspect().player_join_events.len(), 0);
+    assert_eq!(env["client2"].introspect().player_join_events.len(), 0);
+
+    env.start_client("client1", "server");
+    env.flush_network();
+
+    let client1_me = env["client1"].network().me().unwrap();
+    assert_eq!(env["client1"].introspect().player_join_events.len(), 1);
+    assert_eq!(env["client1"].introspect().player_join_events[0].me, true);
     assert_eq!(
-        client1_app.introspect().player_join_events[0].existing_player,
+        env["client1"].introspect().player_join_events[0].existing_player,
         false
     );
     assert_eq!(
-        client1_app.introspect().player_join_events[0].player,
-        client1_app.network().me().unwrap()
+        env["client1"].introspect().player_join_events[0].player,
+        client1_me
     );
-    assert_eq!(client2_app.introspect().player_join_events.len(), 0);
-    client2_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(client1_app.introspect().player_join_events.len(), 2);
-    assert_eq!(client1_app.introspect().player_join_events[1].me, false);
+    assert_eq!(env["client2"].introspect().player_join_events.len(), 0);
+
+    env.start_client("client2", "server");
+    env.flush_network();
+
+    let client2_me = env["client2"].network().me().unwrap();
+    assert_eq!(env["client1"].introspect().player_join_events.len(), 2);
+    assert_eq!(env["client1"].introspect().player_join_events[1].me, false);
     assert_eq!(
-        client1_app.introspect().player_join_events[1].existing_player,
+        env["client1"].introspect().player_join_events[1].existing_player,
         false
     );
     assert_eq!(
-        client1_app.introspect().player_join_events[1].player,
-        client2_app.network().me().unwrap()
+        env["client1"].introspect().player_join_events[1].player,
+        client2_me
     );
-    assert_eq!(client2_app.introspect().player_join_events.len(), 2);
-    assert_eq!(client2_app.introspect().player_join_events[0].me, false);
+    assert_eq!(env["client2"].introspect().player_join_events.len(), 2);
+    assert_eq!(env["client2"].introspect().player_join_events[0].me, false);
     assert_eq!(
-        client2_app.introspect().player_join_events[0].existing_player,
+        env["client2"].introspect().player_join_events[0].existing_player,
         true
     );
     assert_eq!(
-        client2_app.introspect().player_join_events[0].player,
-        client1_app.network().me().unwrap()
+        env["client2"].introspect().player_join_events[0].player,
+        client1_me
     );
-    assert_eq!(client2_app.introspect().player_join_events[1].me, true);
+    assert_eq!(env["client2"].introspect().player_join_events[1].me, true);
     assert_eq!(
-        client2_app.introspect().player_join_events[1].existing_player,
+        env["client2"].introspect().player_join_events[1].existing_player,
         false
     );
     assert_eq!(
-        client2_app.introspect().player_join_events[1].player,
-        client2_app.network().me().unwrap()
+        env["client2"].introspect().player_join_events[1].player,
+        client2_me
     );
 }

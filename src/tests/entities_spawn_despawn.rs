@@ -4,126 +4,141 @@ use bevy::prelude::*;
 
 const ENTITY_COUNT: u32 = 3;
 
-fn get_network_entities_ids(app: &mut App) -> Vec<String> {
+fn get_network_entity_ids(app: &mut App) -> Vec<String> {
     let mut query = app.world.query::<&NetworkEntity>();
     let mut ids: Vec<String> = query.iter(&app.world).map(|e| e.0.to_string()).collect();
     ids.sort_by(|a, b| a.partial_cmp(b).unwrap());
     ids
 }
 
+fn assert_same_entities(env: &mut TestEnvironment, app1: &str, app2: &str) {
+    let entity_ids1 = get_network_entity_ids(env[app1].app());
+    let entity_ids2 = get_network_entity_ids(env[app2].app());
+    assert_eq!(entity_ids1, entity_ids2);
+}
+
 #[test]
-fn spawn_despawn() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client1_app = App::new();
-    let mut client2_app = App::new();
-    server_app.setup_for_tests();
-    client1_app.setup_for_tests();
-    client2_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server_client(vec![pseudo_net.create_host()]);
-    client1_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
+fn spawn_on_join() {
+    // Test that entities are spawned on client when they join
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
     for _ in 0..ENTITY_COUNT {
-        server_app.world.spawn().insert(NetworkEntity::new());
+        env["server"].world().spawn().insert(NetworkEntity::new());
     }
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client1_app.world.entities().len(), ENTITY_COUNT);
-    client2_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(client2_app.world.entities().len(), ENTITY_COUNT);
-    let server_network_entities = get_network_entities_ids(&mut server_app);
-    let client1_network_entities = get_network_entities_ids(&mut client1_app);
-    let client2_network_entities = get_network_entities_ids(&mut client2_app);
-    assert_eq!(server_network_entities, client1_network_entities);
-    assert_eq!(server_network_entities, client2_network_entities);
-    let mut query = server_app
-        .world
+
+    env.create_client("client1", "server");
+    env.create_client("client2", "server");
+    env.flush_network();
+
+    assert_same_entities(&mut env, "server", "client1");
+    assert_same_entities(&mut env, "server", "client2");
+}
+
+#[test]
+fn spawn_after_join() {
+    // Test that entities are spawned on client after they join
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.create_client("client1", "server");
+    env.create_client("client2", "server");
+    env.flush_network();
+
+    for _ in 0..ENTITY_COUNT {
+        env["server"].world().spawn().insert(NetworkEntity::new());
+    }
+    env.flush_network();
+
+    assert_same_entities(&mut env, "server", "client1");
+    assert_same_entities(&mut env, "server", "client2");
+}
+
+#[test]
+fn despawn() {
+    // Test that entities are despawned on clients
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.create_client("client1", "server");
+    env.create_client("client2", "server");
+    env.flush_network();
+
+    for _ in 0..ENTITY_COUNT {
+        env["server"].world().spawn().insert(NetworkEntity::new());
+    }
+    env.flush_network();
+
+    assert_same_entities(&mut env, "server", "client1");
+    assert_same_entities(&mut env, "server", "client2");
+
+    let mut query = env["server"]
+        .world()
         .query_filtered::<Entity, With<NetworkEntity>>();
-    let entities: Vec<Entity> = query.iter(&server_app.world).map(|e| e).collect();
+    let entities: Vec<Entity> = query.iter(&env["server"].world()).map(|e| e).collect();
     for entity in entities.iter() {
-        server_app.world.entity_mut(*entity).despawn();
+        env["server"].world().entity_mut(*entity).despawn();
     }
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.world.entities().len(), 0);
-    assert_eq!(client1_app.world.entities().len(), 0);
-    assert_eq!(client2_app.world.entities().len(), 0);
+    env.flush_network();
+
+    assert_eq!(env["client1"].world().entities().len(), 0);
+    assert_eq!(env["client2"].world().entities().len(), 0);
 }
 
 #[test]
 fn despawn_on_stop() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client1_app = App::new();
-    let mut client2_app = App::new();
-    server_app.setup_for_tests();
-    client1_app.setup_for_tests();
-    client2_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server(vec![pseudo_net.create_host()]);
-    client1_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    client2_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
+    // Test that entities are despawned on clients on client.stop()
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.create_client("client1", "server");
+    env.create_client("client2", "server");
+    env.flush_network();
+
     for _ in 0..ENTITY_COUNT {
-        server_app.world.spawn().insert(NetworkEntity::new());
+        env["server"].world().spawn().insert(NetworkEntity::new());
     }
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client1_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client2_app.world.entities().len(), ENTITY_COUNT);
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    client1_app.network_mut().stop();
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client1_app.world.entities().len(), 0);
-    assert_eq!(client2_app.world.entities().len(), ENTITY_COUNT);
-    client2_app.network_mut().stop();
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client2_app.world.entities().len(), 0);
+    env.flush_network();
+
+    assert_same_entities(&mut env, "server", "client1");
+    assert_same_entities(&mut env, "server", "client2");
+
+    env["client1"].network().stop();
+    env.flush_network();
+    assert_eq!(env["client1"].world().entities().len(), 0);
+    assert_eq!(env["client2"].world().entities().len(), ENTITY_COUNT);
+
+    env["client2"].network().stop();
+    env.flush_network();
+    assert_eq!(env["client1"].world().entities().len(), 0);
+    assert_eq!(env["client2"].world().entities().len(), 0);
 }
 
 #[test]
 pub fn despawn_on_disconnect() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client1_app = App::new();
-    let mut client2_app = App::new();
-    server_app.setup_for_tests();
-    client1_app.setup_for_tests();
-    client2_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server(vec![pseudo_net.create_host()]);
-    client1_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    client2_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
+    // Test that entities are despawned on clients on server.stop()
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.create_client("client1", "server");
+    env.create_client("client2", "server");
+    env.flush_network();
+
     for _ in 0..ENTITY_COUNT {
-        server_app.world.spawn().insert(NetworkEntity::new());
+        env["server"].world().spawn().insert(NetworkEntity::new());
     }
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client1_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client2_app.world.entities().len(), ENTITY_COUNT);
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    server_app.network_mut().stop();
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.world.entities().len(), 0);
-    assert_eq!(client1_app.world.entities().len(), 0);
-    assert_eq!(client2_app.world.entities().len(), 0);
+    env.flush_network();
+
+    assert_same_entities(&mut env, "server", "client1");
+    assert_same_entities(&mut env, "server", "client2");
+
+    env["server"].network().stop();
+    env.flush_network();
+    assert_eq!(env["client1"].world().entities().len(), 0);
+    assert_eq!(env["client2"].world().entities().len(), 0);
 }

@@ -24,6 +24,12 @@ pub struct Introspection {
     pub test_entity_events: Vec<NetworkEntityEvent<TestGameEvent>>,
 }
 
+impl Introspection {
+    pub fn clear(&mut self) {
+        *self = Introspection::default();
+    }
+}
+
 pub fn capture_events(
     mut introspection: ResMut<Introspection>,
     mut connect_events: EventReader<NetworkConnectEvent>,

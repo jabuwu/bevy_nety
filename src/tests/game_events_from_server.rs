@@ -1,142 +1,169 @@
 use super::common::prelude::*;
-use bevy::prelude::*;
+
+// Test the functionality of:
+// - server.send_to_all()
+// - server.send_to_all_except_local()
+// - server.send_to_players()
 
 #[test]
 fn local_send_to_all() {
-    let mut app = App::new();
-    app.setup_for_tests();
-    app.network_mut().start_local();
-    flush_network(vec![&mut app]);
-    app.network_mut()
-        .server_mut()
-        .unwrap()
+    // Test server.send_to_all() for local server
+
+    let mut env = TestEnvironment::default();
+
+    env.create_local("local");
+    env.flush_network();
+    env["local"]
+        .server()
         .send_to_all(TestGameEvent { foo: "bar".into() });
-    flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_game_events_on_client.len(), 1);
+    env.flush_network();
+
     assert_eq!(
-        app.introspect().test_game_events_on_client[0].data.foo,
+        env["local"].introspect().test_game_events_on_client.len(),
+        1
+    );
+    assert_eq!(
+        env["local"].introspect().test_game_events_on_client[0]
+            .data
+            .foo,
         "bar"
     );
 }
 
 #[test]
 fn local_send_to_all_except_local() {
-    let mut app = App::new();
-    app.setup_for_tests();
-    app.network_mut().start_local();
-    flush_network(vec![&mut app]);
-    app.network_mut()
-        .server_mut()
-        .unwrap()
+    // Test server.send_to_all_except_local() for local server
+
+    let mut env = TestEnvironment::default();
+
+    env.create_local("local");
+    env.flush_network();
+    env["local"]
+        .server()
         .send_to_all_except_local(TestGameEvent { foo: "bar".into() });
-    flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_game_events_on_client.len(), 0);
+    env.flush_network();
+
+    assert_eq!(
+        env["local"].introspect().test_game_events_on_client.len(),
+        0
+    );
 }
 
 #[test]
 fn local_send_to_players() {
-    let mut app = App::new();
-    app.setup_for_tests();
-    app.network_mut().start_local();
-    flush_network(vec![&mut app]);
+    // Test server.send_to_all_players() for local server
+
+    let mut env = TestEnvironment::default();
+
+    env.create_local("local");
+    env.flush_network();
+
     let recipients1 = vec![];
-    let recipients2 = vec![app.network().me().unwrap()];
-    app.network_mut().server_mut().unwrap().send_to_players(
+    let recipients2 = vec![env["local"].network().me().unwrap()];
+    env["local"].server().send_to_players(
         &recipients1,
         TestGameEvent {
             foo: "no one".into(),
         },
     );
-    app.network_mut().server_mut().unwrap().send_to_players(
+    env["local"].server().send_to_players(
         &recipients2,
         TestGameEvent {
             foo: "local".into(),
         },
     );
-    flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_game_events_on_client.len(), 1);
+    env.flush_network();
+
     assert_eq!(
-        app.introspect().test_game_events_on_client[0].data.foo,
+        env["local"].introspect().test_game_events_on_client.len(),
+        1
+    );
+    assert_eq!(
+        env["local"].introspect().test_game_events_on_client[0]
+            .data
+            .foo,
         "local"
     );
 }
 
 #[test]
 fn server_client_send_to_all() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut app = App::new();
-    app.setup_for_tests();
-    app.network_mut()
-        .start_server_client(vec![pseudo_net.create_host()]);
-    flush_network(vec![&mut app]);
-    app.network_mut()
-        .server_mut()
-        .unwrap()
+    // Test server.send_to_all() for server-client
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server_client("server");
+    env.flush_network();
+
+    env["server"]
+        .server()
         .send_to_all(TestGameEvent { foo: "bar".into() });
-    flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_game_events_on_client.len(), 1);
+    env.flush_network();
+
     assert_eq!(
-        app.introspect().test_game_events_on_client[0].data.foo,
+        env["server"].introspect().test_game_events_on_client.len(),
+        1
+    );
+    assert_eq!(
+        env["server"].introspect().test_game_events_on_client[0]
+            .data
+            .foo,
         "bar"
     );
 }
 
 #[test]
 fn server_client_send_to_all_except_local() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut app = App::new();
-    app.setup_for_tests();
-    app.network_mut()
-        .start_server_client(vec![pseudo_net.create_host()]);
-    flush_network(vec![&mut app]);
-    app.network_mut()
-        .server_mut()
-        .unwrap()
+    // Test server.send_to_all_except_local() for server-client
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server_client("server");
+    env.flush_network();
+
+    env["server"]
+        .server()
         .send_to_all_except_local(TestGameEvent { foo: "bar".into() });
-    flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_game_events_on_client.len(), 0);
+    env.flush_network();
+
+    assert_eq!(
+        env["server"].introspect().test_game_events_on_client.len(),
+        0
+    );
 }
 
 #[test]
 fn server_client_send_to_players() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client_app = App::new();
-    server_app.setup_for_tests();
-    client_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server_client(vec![pseudo_net.create_host()]);
-    client_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client_app]);
-    let recipients1 = vec![server_app.network().me().unwrap()];
-    let recipients2 = vec![client_app.network().me().unwrap()];
-    server_app
-        .network_mut()
-        .server_mut()
-        .unwrap()
-        .send_to_players(
-            &recipients1,
-            TestGameEvent {
-                foo: "server".into(),
-            },
-        );
-    server_app
-        .network_mut()
-        .server_mut()
-        .unwrap()
-        .send_to_players(
-            &recipients2,
-            TestGameEvent {
-                foo: "client".into(),
-            },
-        );
-    flush_network(vec![&mut server_app, &mut client_app]);
-    assert_eq!(server_app.introspect().test_game_events_on_client.len(), 1);
+    // Test server.send_to_players() for server-client
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server_client("server");
+    env.flush_network();
+
+    let recipients1 = vec![];
+    let recipients2 = vec![env["server"].network().me().unwrap()];
+
+    env["server"].server().send_to_players(
+        &recipients1,
+        TestGameEvent {
+            foo: "no one".into(),
+        },
+    );
+    env["server"].server().send_to_players(
+        &recipients2,
+        TestGameEvent {
+            foo: "server".into(),
+        },
+    );
+    env.flush_network();
+
     assert_eq!(
-        server_app.introspect().test_game_events_on_client[0]
+        env["server"].introspect().test_game_events_on_client.len(),
+        1
+    );
+    assert_eq!(
+        env["server"].introspect().test_game_events_on_client[0]
             .data
             .foo,
         "server"
@@ -145,101 +172,109 @@ fn server_client_send_to_players() {
 
 #[test]
 fn server_send_to_all() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut app = App::new();
-    app.setup_for_tests();
-    app.network_mut()
-        .start_server(vec![pseudo_net.create_host()]);
-    flush_network(vec![&mut app]);
-    app.network_mut()
-        .server_mut()
-        .unwrap()
+    // Test server.send_to_all() for server
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.flush_network();
+
+    env["server"]
+        .server()
         .send_to_all(TestGameEvent { foo: "bar".into() });
-    flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_game_events_on_client.len(), 0);
+    env.flush_network();
+
+    assert_eq!(
+        env["server"].introspect().test_game_events_on_client.len(),
+        0
+    );
 }
 
 #[test]
 fn server_send_to_all_except_local() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut app = App::new();
-    app.setup_for_tests();
-    app.network_mut()
-        .start_server(vec![pseudo_net.create_host()]);
-    flush_network(vec![&mut app]);
-    app.network_mut()
-        .server_mut()
-        .unwrap()
-        .send_to_all(TestGameEvent { foo: "bar".into() });
-    flush_network(vec![&mut app]);
-    assert_eq!(app.introspect().test_game_events_on_client.len(), 0);
+    // Test server.send_to_all_except_local() for server
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.flush_network();
+
+    env["server"]
+        .server()
+        .send_to_all_except_local(TestGameEvent { foo: "bar".into() });
+    env.flush_network();
+
+    assert_eq!(
+        env["server"].introspect().test_game_events_on_client.len(),
+        0
+    );
 }
 
 #[test]
 fn server_send_to_players() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client_app = App::new();
-    server_app.setup_for_tests();
-    client_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server_client(vec![pseudo_net.create_host()]);
-    client_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client_app]);
+    // Test server.send_to_players() for server
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.create_client("client", "server");
+    env.flush_network();
+
     let recipients1 = vec![];
-    let recipients2 = vec![client_app.network().me().unwrap()];
-    server_app
-        .network_mut()
-        .server_mut()
-        .unwrap()
-        .send_to_players(&recipients1, TestGameEvent { foo: "bar".into() });
-    server_app
-        .network_mut()
-        .server_mut()
-        .unwrap()
-        .send_to_players(&recipients2, TestGameEvent { foo: "bar".into() });
-    flush_network(vec![&mut server_app, &mut client_app]);
-    assert_eq!(server_app.introspect().test_game_events_on_client.len(), 0);
+    let recipients2 = vec![env["client"].network().me().unwrap()];
+
+    env["server"].server().send_to_players(
+        &recipients1,
+        TestGameEvent {
+            foo: "no one".into(),
+        },
+    );
+    env["server"].server().send_to_players(
+        &recipients2,
+        TestGameEvent {
+            foo: "client".into(),
+        },
+    );
+    env.flush_network();
+
+    assert_eq!(
+        env["server"].introspect().test_game_events_on_client.len(),
+        0
+    );
 }
 
 #[test]
 fn client_send_to_all() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client1_app = App::new();
-    let mut client2_app = App::new();
-    server_app.setup_for_tests();
-    client1_app.setup_for_tests();
-    client2_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server(vec![pseudo_net.create_host()]);
-    client1_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    client2_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    server_app
-        .network_mut()
-        .server_mut()
-        .unwrap()
+    // This tests sending from server and receiving on client using server.send_to_all()
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.create_client("client1", "server");
+    env.create_client("client2", "server");
+    env.flush_network();
+
+    env["server"]
+        .server()
         .send_to_all(TestGameEvent { foo: "bar".into() });
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(client1_app.introspect().test_game_events_on_client.len(), 1);
+    env.flush_network();
+
     assert_eq!(
-        client1_app.introspect().test_game_events_on_client[0]
+        env["client1"].introspect().test_game_events_on_client.len(),
+        1
+    );
+    assert_eq!(
+        env["client1"].introspect().test_game_events_on_client[0]
             .data
             .foo,
         "bar"
     );
-    assert_eq!(client2_app.introspect().test_game_events_on_client.len(), 1);
     assert_eq!(
-        client2_app.introspect().test_game_events_on_client[0]
+        env["client2"].introspect().test_game_events_on_client.len(),
+        1
+    );
+    assert_eq!(
+        env["client2"].introspect().test_game_events_on_client[0]
             .data
             .foo,
         "bar"
@@ -248,39 +283,36 @@ fn client_send_to_all() {
 
 #[test]
 fn client_send_to_all_except_local() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client1_app = App::new();
-    let mut client2_app = App::new();
-    server_app.setup_for_tests();
-    client1_app.setup_for_tests();
-    client2_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server(vec![pseudo_net.create_host()]);
-    client1_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    client2_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    server_app
-        .network_mut()
-        .server_mut()
-        .unwrap()
+    // This tests sending from server and receiving on client using server.send_to_all_except_local()
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.create_client("client1", "server");
+    env.create_client("client2", "server");
+    env.flush_network();
+
+    env["server"]
+        .server()
         .send_to_all_except_local(TestGameEvent { foo: "bar".into() });
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(client1_app.introspect().test_game_events_on_client.len(), 1);
+    env.flush_network();
+
     assert_eq!(
-        client1_app.introspect().test_game_events_on_client[0]
+        env["client1"].introspect().test_game_events_on_client.len(),
+        1
+    );
+    assert_eq!(
+        env["client1"].introspect().test_game_events_on_client[0]
             .data
             .foo,
         "bar"
     );
-    assert_eq!(client2_app.introspect().test_game_events_on_client.len(), 1);
     assert_eq!(
-        client2_app.introspect().test_game_events_on_client[0]
+        env["client2"].introspect().test_game_events_on_client.len(),
+        1
+    );
+    assert_eq!(
+        env["client2"].introspect().test_game_events_on_client[0]
             .data
             .foo,
         "bar"
@@ -289,67 +321,55 @@ fn client_send_to_all_except_local() {
 
 #[test]
 fn client_send_to_players() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client1_app = App::new();
-    let mut client2_app = App::new();
-    server_app.setup_for_tests();
-    client1_app.setup_for_tests();
-    client2_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server_client(vec![pseudo_net.create_host()]);
-    client1_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    client2_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
+    // This tests sending from server and receiving on client using server.send_to_players()
+
+    let mut env = TestEnvironment::default();
+
+    env.create_server("server");
+    env.create_client("client1", "server");
+    env.create_client("client2", "server");
+    env.flush_network();
+
     let recipients1 = vec![];
-    let recipients2 = vec![client1_app.network().me().unwrap()];
-    let recipients3 = vec![client2_app.network().me().unwrap()];
-    server_app
-        .network_mut()
-        .server_mut()
-        .unwrap()
-        .send_to_players(
-            &recipients1,
-            TestGameEvent {
-                foo: "no one".into(),
-            },
-        );
-    server_app
-        .network_mut()
-        .server_mut()
-        .unwrap()
-        .send_to_players(
-            &recipients2,
-            TestGameEvent {
-                foo: "client1".into(),
-            },
-        );
-    server_app
-        .network_mut()
-        .server_mut()
-        .unwrap()
-        .send_to_players(
-            &recipients3,
-            TestGameEvent {
-                foo: "client2".into(),
-            },
-        );
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(client1_app.introspect().test_game_events_on_client.len(), 1);
+    let recipients2 = vec![env["client1"].network().me().unwrap()];
+    let recipients3 = vec![env["client2"].network().me().unwrap()];
+
+    env["server"].server().send_to_players(
+        &recipients1,
+        TestGameEvent {
+            foo: "no one".into(),
+        },
+    );
+    env["server"].server().send_to_players(
+        &recipients2,
+        TestGameEvent {
+            foo: "client1".into(),
+        },
+    );
+    env["server"].server().send_to_players(
+        &recipients3,
+        TestGameEvent {
+            foo: "client2".into(),
+        },
+    );
+    env.flush_network();
+
     assert_eq!(
-        client1_app.introspect().test_game_events_on_client[0]
+        env["client1"].introspect().test_game_events_on_client.len(),
+        1
+    );
+    assert_eq!(
+        env["client1"].introspect().test_game_events_on_client[0]
             .data
             .foo,
         "client1"
     );
-    assert_eq!(client2_app.introspect().test_game_events_on_client.len(), 1);
     assert_eq!(
-        client2_app.introspect().test_game_events_on_client[0]
+        env["client2"].introspect().test_game_events_on_client.len(),
+        1
+    );
+    assert_eq!(
+        env["client2"].introspect().test_game_events_on_client[0]
             .data
             .foo,
         "client2"

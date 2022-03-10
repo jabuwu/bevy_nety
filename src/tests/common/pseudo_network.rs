@@ -11,6 +11,7 @@ use std::sync::{
 // TODO: should rewrite PseudoHost and PseudoSocket so that update() is required to work
 //       to ensure that network code calls it
 
+#[derive(Default)]
 pub struct PseudoNetwork {
     hosts: HashMap<String, Sender<PseudoHostConnection>>,
 }

@@ -299,6 +299,7 @@ pub fn update_network(world: &mut World) {
     client_spawn_despawn_entities(&mut network, world);
     send_events(&mut network, world);
     update_entities(&mut network, world);
+    server_send_entity_events(&mut network);
 }
 
 fn update_connector(mut network: &mut Network) {
@@ -585,6 +586,7 @@ pub fn server_receive_messages_from_joiners(network: &mut Network) {
                 let message = NetworkMessage::deserialize(&message);
                 match message {
                     NetworkMessage::PlayerInit { player, data } => {
+                        // TODO: validate incoming player data with registry
                         server.players.push(NetworkServerPlayer {
                             initialized: false,
                             handle: player,
@@ -822,6 +824,24 @@ fn update_entities(network: &mut Network, world: &mut World) {
                 unsafe_world
                     .entity_mut(entity)
                     .remove::<NetworkEntityOwner>();
+            }
+        }
+    }
+}
+
+pub fn server_send_entity_events(network: &mut Network) {
+    let Network { state, .. } = network;
+    let server = get_server_from_state!(state);
+    let NetworkServer {
+        players,
+        relevancy,
+        entity_messages,
+        ..
+    } = server;
+    while let Some((entity, message)) = entity_messages.pop_front() {
+        for player in players.iter_mut() {
+            if relevancy.relevant(player.handle, entity) {
+                player.socket.send(message.serialize());
             }
         }
     }

@@ -1,6 +1,5 @@
 use super::common::prelude::*;
 use crate::prelude::*;
-use bevy::prelude::*;
 
 // this variable should be even
 const ENTITY_COUNT: u32 = 10;
@@ -10,155 +9,126 @@ const ENTITY_COUNT: u32 = 10;
 // - spawning the entity when it becomes relevant
 // - despawning irrelevant entities
 // - spawn->despawn->spawn->despawn
+// TODO: this test is wearing too many hats, needs to be broken up
 #[test]
 fn set_relevancy() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client1_app = App::new();
-    let mut client2_app = App::new();
-    server_app.setup_for_tests();
-    client1_app.setup_for_tests();
-    client2_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server_client(vec![pseudo_net.create_host()]);
-    client1_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    client2_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
+    let mut env = TestEnvironment::default();
+
+    env.create_server_client("server");
+    env.create_client("client1", "server");
+    env.create_client("client2", "server");
+    env.flush_network();
+
     for _ in 0..ENTITY_COUNT {
-        server_app.world.spawn().insert(NetworkEntity::new());
+        env["server"].world().spawn().insert(NetworkEntity::new());
     }
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client1_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client2_app.world.entities().len(), ENTITY_COUNT);
-    let mut network_entity_query = server_app.world.query::<&NetworkEntity>();
+    env.flush_network();
+
+    assert_eq!(env["server"].world().entities().len(), ENTITY_COUNT);
+    assert_eq!(env["client1"].world().entities().len(), ENTITY_COUNT);
+    assert_eq!(env["client2"].world().entities().len(), ENTITY_COUNT);
+
+    let mut network_entity_query = env["server"].world().query::<&NetworkEntity>();
     let network_entities: Vec<NetworkEntity> = network_entity_query
-        .iter(&server_app.world)
+        .iter(&env["server"].world())
         .map(|e| *e)
         .collect();
+    let client1_me = env["client1"].network().me().unwrap();
     for (i, network_entity) in network_entities.iter().enumerate() {
-        server_app
-            .network_mut()
-            .server_mut()
-            .unwrap()
-            .set_entity_relevant(
-                *network_entity,
-                client1_app.network().me().unwrap(),
-                i % 2 == 0,
-            );
+        env["server"]
+            .server()
+            .set_entity_relevant(*network_entity, client1_me, i % 2 == 0);
     }
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client1_app.world.entities().len(), ENTITY_COUNT / 2);
-    assert_eq!(client2_app.world.entities().len(), ENTITY_COUNT);
+    env.flush_network();
+
+    assert_eq!(env["server"].world().entities().len(), ENTITY_COUNT);
+    assert_eq!(env["client1"].world().entities().len(), ENTITY_COUNT / 2);
+    assert_eq!(env["client2"].world().entities().len(), ENTITY_COUNT);
+    let client2_me = env["client2"].network().me().unwrap();
     for (i, network_entity) in network_entities.iter().enumerate() {
-        server_app
-            .network_mut()
-            .server_mut()
-            .unwrap()
-            .set_entity_relevant(*network_entity, client1_app.network().me().unwrap(), true);
-        server_app
-            .network_mut()
-            .server_mut()
-            .unwrap()
-            .set_entity_relevant(
-                *network_entity,
-                client2_app.network().me().unwrap(),
-                i % 2 == 0,
-            );
+        env["server"]
+            .server()
+            .set_entity_relevant(*network_entity, client1_me, true);
+        env["server"]
+            .server()
+            .set_entity_relevant(*network_entity, client2_me, i % 2 == 0);
     }
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client1_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client2_app.world.entities().len(), ENTITY_COUNT / 2);
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
+    env.flush_network();
+
+    assert_eq!(env["server"].world().entities().len(), ENTITY_COUNT);
+    assert_eq!(env["client1"].world().entities().len(), ENTITY_COUNT);
+    assert_eq!(env["client2"].world().entities().len(), ENTITY_COUNT / 2);
+    env.flush_network();
+
     for (i, network_entity) in network_entities.iter().enumerate() {
-        server_app
-            .network_mut()
-            .server_mut()
-            .unwrap()
-            .set_entity_relevant(
-                *network_entity,
-                client1_app.network().me().unwrap(),
-                i % 2 == 0,
-            );
+        env["server"]
+            .server()
+            .set_entity_relevant(*network_entity, client1_me, i % 2 == 0);
     }
-    flush_network(vec![&mut server_app, &mut client1_app, &mut client2_app]);
-    assert_eq!(server_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client1_app.world.entities().len(), ENTITY_COUNT / 2);
-    assert_eq!(client2_app.world.entities().len(), ENTITY_COUNT / 2);
+    env.flush_network();
+
+    assert_eq!(env["server"].world().entities().len(), ENTITY_COUNT);
+    assert_eq!(env["client1"].world().entities().len(), ENTITY_COUNT / 2);
+    assert_eq!(env["client2"].world().entities().len(), ENTITY_COUNT / 2);
 }
 
-// if a player owns an entity, it forces relevancy
 #[test]
 fn ownership_overrides() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut server_app = App::new();
-    let mut client_app = App::new();
-    server_app.setup_for_tests();
-    client_app.setup_for_tests();
-    server_app
-        .network_mut()
-        .start_server_client(vec![pseudo_net.create_host()]);
-    client_app
-        .network_mut()
-        .start_client(pseudo_net.create_connector().as_success());
-    flush_network(vec![&mut server_app, &mut client_app]);
+    // if a player owns an entity, it forces relevancy
+
+    let mut env = TestEnvironment::default();
+    env.create_server_client("server");
+    env.create_client("client", "server");
+    env.flush_network();
+
+    let client_me = env["client"].network().me().unwrap();
     let mut network_entities = vec![];
     for _ in 0..ENTITY_COUNT {
         let network_entity = NetworkEntity::new();
         network_entities.push(network_entity);
-        server_app.world.spawn().insert(network_entity);
-        server_app
-            .network_mut()
-            .server_mut()
-            .unwrap()
-            .set_entity_relevant(network_entity, client_app.network().me().unwrap(), false);
-        server_app
-            .network_mut()
-            .server_mut()
-            .unwrap()
-            .set_entity_owner(network_entity, Some(client_app.network().me().unwrap()));
+        env["server"].world().spawn().insert(network_entity);
+        env["server"]
+            .server()
+            .set_entity_relevant(network_entity, client_me, false);
+        env["server"]
+            .server()
+            .set_entity_owner(network_entity, Some(client_me));
     }
-    flush_network(vec![&mut server_app, &mut client_app]);
-    assert_eq!(server_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client_app.world.entities().len(), ENTITY_COUNT);
+    env.flush_network();
+
+    assert_eq!(env["server"].world().entities().len(), ENTITY_COUNT);
+    assert_eq!(env["client"].world().entities().len(), ENTITY_COUNT);
+
     for network_entity in network_entities.iter() {
-        server_app
-            .network_mut()
-            .server_mut()
-            .unwrap()
+        env["server"]
+            .server()
             .set_entity_owner(*network_entity, None);
     }
-    flush_network(vec![&mut server_app, &mut client_app]);
-    assert_eq!(server_app.world.entities().len(), ENTITY_COUNT);
-    assert_eq!(client_app.world.entities().len(), 0);
+    env.flush_network();
+
+    assert_eq!(env["server"].world().entities().len(), ENTITY_COUNT);
+    assert_eq!(env["client"].world().entities().len(), 0);
 }
 
 #[test]
-fn server_overrides() {
-    let mut pseudo_net = PseudoNetwork::new();
-    let mut app = App::new();
-    app.setup_for_tests();
-    app.network_mut()
-        .start_server_client(vec![pseudo_net.create_host()]);
-    flush_network(vec![&mut app]);
+fn server_overrides_relevancy() {
+    // Entities cannot be irrelevant on server
+
+    let mut env = TestEnvironment::default();
+    env.create_server_client("server");
+    env.flush_network();
+
     let mut network_entities = vec![];
     for _ in 0..ENTITY_COUNT {
         let network_entity = NetworkEntity::new();
         network_entities.push(network_entity);
-        app.world.spawn().insert(network_entity);
-        let me = app.network().me().unwrap();
-        app.network_mut()
-            .server_mut()
-            .unwrap()
+        env["server"].world().spawn().insert(network_entity);
+        let me = env["server"].network().me().unwrap();
+        env["server"]
+            .server()
             .set_entity_relevant(network_entity, me, false);
     }
-    flush_network(vec![&mut app]);
-    assert_eq!(app.world.entities().len(), ENTITY_COUNT);
+    env.flush_network();
+
+    assert_eq!(env["server"].world().entities().len(), ENTITY_COUNT);
 }

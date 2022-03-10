@@ -4,7 +4,7 @@ use std::collections::HashMap;
 struct NetworkRelevancyEntry {
     spawned: bool,
     despawned: bool,
-    relevant: bool,
+    relevant: Option<bool>,
     manual_relevancy: bool,
 }
 
@@ -36,7 +36,7 @@ impl NetworkRelevancy {
             .or_insert_with(|| NetworkRelevancyEntry {
                 spawned: false,
                 despawned: false,
-                relevant: true,
+                relevant: None,
                 manual_relevancy: true,
             })
     }
@@ -48,8 +48,8 @@ impl NetworkRelevancy {
         force_relevant: bool,
     ) -> NetworkRelevancyState {
         let entry = self.get_or_insert_entry(player, entity.handle);
-        entry.relevant = entry.manual_relevancy || force_relevant;
-        if entry.relevant || force_relevant {
+        entry.relevant = Some(entry.manual_relevancy || force_relevant);
+        if entry.manual_relevancy || force_relevant {
             if entry.spawned {
                 NetworkRelevancyState::Relevant
             } else {
@@ -69,7 +69,8 @@ impl NetworkRelevancy {
     }
 
     pub(crate) fn relevant(&mut self, player: NetworkPlayer, entity: NetworkEntity) -> bool {
-        self.get_or_insert_entry(player, entity).relevant
+        // Note: The unwrap here is to ensure that relevancy is only checked AFTER update()
+        self.get_or_insert_entry(player, entity).relevant.unwrap()
     }
 
     pub(crate) fn set_relevant(
@@ -79,5 +80,6 @@ impl NetworkRelevancy {
         relevant: bool,
     ) {
         self.get_or_insert_entry(player, entity).manual_relevancy = relevant;
+        self.get_or_insert_entry(player, entity).relevant = None;
     }
 }

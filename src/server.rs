@@ -7,7 +7,7 @@ use crate::{
     serialized_struct::{NetworkSerializedStruct, NetworkSerializedStructMap},
 };
 use bevy_nety_protocol::{NetworkHost, NetworkSocket};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 pub(crate) struct NetworkServerJoiner {
     pub(crate) socket: Option<NetworkSocket>,
@@ -35,6 +35,7 @@ pub struct NetworkServer {
     pub(crate) players: Vec<NetworkServerPlayer>,
     pub(crate) entities: HashMap<NetworkEntity, NetworkServerEntity>,
     pub(crate) relevancy: NetworkRelevancy,
+    pub(crate) entity_messages: VecDeque<(NetworkEntity, NetworkMessage)>,
 }
 
 impl NetworkServer {
@@ -46,6 +47,7 @@ impl NetworkServer {
             players: vec![],
             entities: HashMap::new(),
             relevancy: NetworkRelevancy::default(),
+            entity_messages: VecDeque::default(),
         }
     }
 
@@ -104,18 +106,14 @@ impl NetworkServer {
     where
         T: NetworkEventTraits,
     {
-        for player in self.players.iter_mut() {
-            if self.relevancy.relevant(player.handle, entity) {
-                player.socket.send(
-                    NetworkMessage::EntityEvent {
-                        entity,
-                        from: None,
-                        data: NetworkSerializedStruct::from_struct(&event),
-                    }
-                    .serialize(),
-                );
-            }
-        }
+        self.entity_messages.push_back((
+            entity,
+            NetworkMessage::EntityEvent {
+                entity,
+                from: None,
+                data: NetworkSerializedStruct::from_struct(&event),
+            },
+        ));
     }
 
     pub(crate) fn players(&self) -> Vec<NetworkPlayer> {
